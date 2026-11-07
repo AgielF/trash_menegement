@@ -257,7 +257,7 @@ function PaymentForm({ rows, onPaid }: PaymentFormProps): React.ReactElement {
       onPaid()
     } catch (caught: unknown) {
       if (caught instanceof ApiError && caught.status === null) {
-        setError('Masih offline — pembayaran butuh koneksi (server menentukan clamp akhir).')
+        setError('Pembayaran membutuhkan koneksi internet. Pastikan Anda online.')
       } else {
         setError(caught instanceof ApiError ? caught.message : 'Terjadi galat tak terduga.')
       }

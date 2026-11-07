@@ -1,11 +1,11 @@
 import { useState } from 'react'
+import illustration from '@/assets/images/ilust_register.png'
 import { registerSchema } from './schemas'
 import { postRegister } from './api'
 import { ApiError } from '@/shared/api/http'
 import { Button } from '@/shared/components/ui/Button'
 import { TextField } from '@/shared/components/ui/TextField'
 import { AuthShell } from './AuthShell'
-import { PlaceholderIllustration } from '@/shared/components/ui/Placeholder'
 
 /** Layar Registrasi — mengikuti UI reference/Registration.png. */
 export function RegisterPage(): React.ReactElement {
@@ -54,7 +54,13 @@ export function RegisterPage(): React.ReactElement {
 
   return (
     <AuthShell variant="register">
-      <PlaceholderIllustration label="Ilustrasi petugas (menunggu aset Figma)" />
+      <img
+        src={illustration}
+        alt=""
+        aria-hidden="true"
+        className="mx-auto h-44 w-auto select-none"
+        draggable={false}
+      />
       <form
         onSubmit={(event) => {
           event.preventDefault()
