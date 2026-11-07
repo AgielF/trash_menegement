@@ -1,0 +1,7 @@
+#!/bin/sh
+# Husky hook: commitlint (Conventional Commits). Pesan bisa path relatif —
+# ubah ke absolut sebelum cd agar tetap valid dari folder frontend.
+MSG="$1"
+case "$MSG" in /*) ;; *) MSG="$(pwd)/$1" ;; esac
+cd "$(dirname "$0")/.." || exit 1
+exec npx --no -- commitlint --edit "$MSG"

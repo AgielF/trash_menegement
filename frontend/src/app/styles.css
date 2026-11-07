@@ -1,0 +1,60 @@
+@import 'tailwindcss';
+
+/* Font Poppins — self-hosted (subset latin), tanpa pihak ketiga saat runtime (CSP) */
+@font-face {
+  font-family: 'Poppins';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../shared/assets/fonts/poppins-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Poppins';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../shared/assets/fonts/poppins-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Poppins';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../shared/assets/fonts/poppins-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Poppins';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../shared/assets/fonts/poppins-700.woff2') format('woff2');
+}
+
+/*
+ * Design token tema (Tailwind 4, @theme). Warna tiruan dari UI_reference.
+ * TODO-sesuai-Figma: verifikasi nilai eksak dengan klik eye-dropper di Figma.
+ */
+@theme {
+  --font-sans: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+
+  --color-brand: #2fbe5c; /* hijau header/blob */
+  --color-action: #63fffe; /* tombol sekunder (tosca terang, Figma) */
+  --color-purple-link: #575988; /* tautan/tombol sekunder gelap (Figma) */
+  --color-surface: #eff5f1; /* latar layar abu kehijauan terang */
+  --color-nav-bar: #d7f3dc; /* bottom navigation hijau sangat muda */
+
+  /* Status kartu rumah (src/config/status.ts) */
+  --color-status-belum: #d9d5cf; /* abu-abu tepung */
+  --color-status-lunas: #35b45f; /* hijau */
+  --color-status-kasbon: #e23b26; /* merah — selalu pakai label teks */
+  --color-status-skip: #ffd43a; /* kuning — selalu pakai label teks */
+
+  --color-card-green: #35b45f; /* kartu progres & karung/uang di Beranda */
+}
+
+/* Bentuk dasar: layar berdiri satu kolom (mobile-first) */
+html,
+body,
+#root {
+  height: 100%;
+}

@@ -1,0 +1,25 @@
+# Dependensi & artefak
+node_modules/
+dist/
+coverage/
+
+# Lingkungan & rahasia
+.env
+.env.*
+!.env.example
+
+# Build cache
+*.tsbuildinfo
+.vite/
+
+# Playwright & test artefak
+playwright-report/
+test-results/
+blob-report/
+
+# Sistem
+.DS_Store
+Thumbs.db
+
+# Contoh: backend dikelola terpisah (beku) — jangan ikut repo frontend
+backend/

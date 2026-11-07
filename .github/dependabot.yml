@@ -1,0 +1,8 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    # Playbook: hindari rilis terlalu baru; Dependabot cukup mingguan.
+    open-pull-requests-limit: 5

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Husky hook: jalankan lint-staged di folder frontend (repo root = monorepo).
+cd "$(dirname "$0")/.." || exit 1
+exec npx --no -- lint-staged

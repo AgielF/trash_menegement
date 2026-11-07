@@ -1,0 +1,21 @@
+# Ketergantungan node
+node_modules
+
+# Artefak build dan laporan
+dist
+dev-dist
+coverage
+playwright-report
+test-results
+
+# Lingkungan (.env.example di-commit; sisanya tidak)
+.env
+.env.*
+!.env.example
+
+# Lokal
+*.local
+
+# Editor/OS
+.DS_Store
+*.tsbuildinfo
