@@ -47,7 +47,8 @@
   --color-status-belum: #d9d5cf; /* abu-abu tepung */
   --color-status-lunas: #35b45f; /* hijau */
   --color-status-kasbon: #e23b26; /* merah — selalu pakai label teks */
-  --color-status-skip: #ffd43a; /* kuning — selalu pakai label teks */
+  --color-status-sebagian: #ffd43a; /* kuning — selalu pakai label teks */
+  --color-status-skip: #ff7f66; /* merah beda nuansa (skip) — selalu pakai label teks */
 
   --color-card-green: #35b45f; /* kartu progres & karung/uang di Beranda */
 }

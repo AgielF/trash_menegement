@@ -1,30 +1,53 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { PickupRow } from '@/shared/db/db'
-import { todayKey, recordPickup, skipPickup, listTodayFromDb } from './service'
+import { ApiError } from '@/shared/api/http'
+import {
+  cacheTodayRows,
+  fetchToday,
+  listTodayFromDb,
+  recordPickup,
+  skipPickup,
+  todayKey,
+} from './service'
 import { HouseCard } from './HouseCard'
 import { TextField } from '@/shared/components/ui/TextField'
 import { Button } from '@/shared/components/ui/Button'
 
 /**
- * Daftar Rumah — persis WhatsApp Image referensi (panel kanan):
- * header hijau dengan kolom cari "CARI...", kartu-kartu status berwarna.
- * Aksi ambil/skip lewat dialog bawah (kebutuhan scope, gaya konsisten referensi).
+ * F6/F7/F8 — Daftar Rumah petugas:
+ * - Data: GET /pickups/today (kontrak resmi) dipakai
+ *   saat daring; respons di-cache ke Dexie. Saat offline → dibaca dari Dexie.
+ * - Kartu: warna status dari config/status.ts (abu/hijau/merah/kuning/koral).
+ * - F7: klik kartu → dialog isi jumlah karung → PATCH /pickups/:id/pickup.
+ * - F8: tombol Skip pada kartu belum diambil → dialog alasan wajib →
+ *   POST /pickups/:id/skip. Keduanya offline-first (Dexie + outbox).
  */
 export function HouseListPage(): React.ReactElement {
   const [rows, setRows] = useState<PickupRow[]>([])
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
+  const [offline, setOffline] = useState(false)
   const [actionRecord, setActionRecord] = useState<PickupRow | null>(null)
+  const [skipRecord, setSkipRecord] = useState<PickupRow | null>(null)
   const [dialogError, setDialogError] = useState<string | null>(null)
 
   useEffect(() => {
-    void refresh()
+    void (async () => {
+      try {
+        const remote = await fetchToday()
+        await cacheTodayRows(remote)
+        setOffline(false)
+      } catch (error) {
+        // Gagal-request dianggap offline (playbook); data dari Dexie.
+        setOffline(!(error instanceof ApiError && error.status !== null))
+      }
+      setRows(await listTodayFromDb())
+      setLoading(false)
+    })()
   }, [])
 
   async function refresh(): Promise<void> {
-    setLoading(true)
     setRows(await listTodayFromDb())
-    setLoading(false)
   }
 
   const filtered = useMemo(() => {
@@ -60,47 +83,86 @@ export function HouseListPage(): React.ReactElement {
       </header>
 
       <main className="flex flex-col gap-3 px-4 py-4">
+        {offline ? (
+          <p
+            role="status"
+            className="mx-auto w-fit rounded-full bg-white px-4 py-1 text-xs font-medium text-neutral-700 shadow-sm"
+          >
+            Offline — perubahan tersimpan lokal, menunggu sinkron
+          </p>
+        ) : null}
         {loading ? (
           <p className="text-center text-xs text-neutral-500" aria-busy="true">
             Memuat…
           </p>
         ) : filtered.length === 0 ? (
           <p className="text-center text-sm text-neutral-500">
-            Belum ada rumah hari ini. Coba buat jadwal lewat tombol Mulai Ambil Sampah di Beranda.
+            Belum ada rumah hari ini. Coba mulai hari lewat tombol Mulai Ambil Sampah di Beranda.
           </p>
         ) : (
-          filtered.map((row) => (
-            <button
-              key={row.id}
-              type="button"
-              onClick={() => {
-                setDialogError(null)
-                setActionRecord(row)
-              }}
-              className="text-left"
-            >
-              <HouseCard
-                house={{
-                  id: row.id,
-                  ownerName: row.house.ownerName,
-                  rt: row.house.rt,
-                  gang: row.house.gang,
-                  pickupStatus: row.pickupStatus,
-                  paymentStatus: row.paymentStatus,
-                  skippedToday: row.skips.some((skip) => skip.skipDate === todayKey()),
-                }}
-              />
-            </button>
-          ))
+          filtered.map((row) => {
+            const skippedToday = row.skips.some((skip) => skip.skipDate === todayKey())
+            return (
+              <div key={row.id} className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDialogError(null)
+                    setActionRecord(row)
+                  }}
+                  aria-label={`Buka detail pengambilan ${row.house.ownerName}`}
+                  className="w-full text-left focus-visible:ring-2 focus-visible:ring-action"
+                >
+                  <HouseCard
+                    house={{
+                      id: row.id,
+                      ownerName: row.house.ownerName,
+                      rt: row.house.rt,
+                      gang: row.house.gang,
+                      pickupStatus: row.pickupStatus,
+                      paymentStatus: row.paymentStatus,
+                      skippedToday,
+                    }}
+                  />
+                </button>
+                {row.pickupStatus === 'belum_diambil' && !skippedToday ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDialogError(null)
+                      setSkipRecord(row)
+                    }}
+                    className="absolute right-3 bottom-2.5 rounded-full bg-white px-3 py-1 text-xs font-bold text-brand shadow-sm focus-visible:ring-2 focus-visible:ring-action"
+                  >
+                    Skip
+                  </button>
+                ) : null}
+              </div>
+            )
+          })
         )}
       </main>
 
       {actionRecord !== null ? (
-        <ActionDialog
-          key={actionRecord.id}
+        <PickupDialog
+          key={`pickup-${actionRecord.id}`}
           record={actionRecord}
           onClose={() => {
             setActionRecord(null)
+          }}
+          onDone={() => {
+            void refresh()
+          }}
+          onErrorSetter={setDialogError}
+          error={dialogError}
+        />
+      ) : null}
+      {skipRecord !== null ? (
+        <SkipDialog
+          key={`skip-${skipRecord.id}`}
+          record={skipRecord}
+          onClose={() => {
+            setSkipRecord(null)
           }}
           onDone={() => {
             void refresh()
@@ -113,7 +175,7 @@ export function HouseListPage(): React.ReactElement {
   )
 }
 
-interface ActionDialogProps {
+interface DialogBaseProps {
   record: PickupRow
   onClose: () => void
   onDone: () => void
@@ -121,27 +183,64 @@ interface ActionDialogProps {
   error: string | null
 }
 
-/**
- * Dialog aksi (di luar mockup — kebutuhan alur ambil/skip):
- * rumah belum diambil → isi jumlah karung ATAU isi alasan skip.
- * rumah sudah diambil → tombol tutup (bayar menyusul di Iris 4).
- */
-function ActionDialog({
+/** Modal bawah berbagi bingkai (latar klik-tutup + kartu putih membulat). */
+function QDialog({
+  title,
+  subtitle,
+  onClose,
+  error,
+  children,
+}: {
+  title: string
+  subtitle: string
+  onClose: () => void
+  error: string | null
+  children: React.ReactNode
+}): React.ReactElement {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      className="fixed inset-0 z-20 flex items-end bg-black/40 p-4"
+    >
+      {/* Latar klik-tutup: button penuh agar patuh a11y (bisa difokus & Enter). */}
+      <button
+        type="button"
+        aria-label="Tutup dialog"
+        className="absolute inset-0 cursor-default"
+        onClick={onClose}
+      />
+      <div className="relative w-full rounded-3xl bg-white p-5 shadow-lg">
+        <h2 className="text-base font-bold text-neutral-900">{title}</h2>
+        <p className="text-xs text-neutral-600">{subtitle}</p>
+        {error !== null ? (
+          <p role="alert" className="mt-2 text-xs text-status-kasbon">
+            {error}
+          </p>
+        ) : null}
+        <div className="mt-4">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+/** F7 — Catat pengambilan: jumlah karung (int ≥ 0) → PATCH /pickups/:id/pickup. */
+function PickupDialog({
   record,
   onClose,
   onDone,
   onErrorSetter,
   error,
-}: ActionDialogProps): React.ReactElement {
-  const [bagsCount, setBagsCount] = useState('1')
-  const [reason, setReason] = useState('')
+}: DialogBaseProps): React.ReactElement {
+  const [bagsCount, setBagsCount] = useState(
+    record.bagsCount !== null ? String(record.bagsCount) : '1',
+  )
   const [busy, setBusy] = useState(false)
 
-  const today = todayKey()
-  const skippedToday = record.skips.some((skip) => skip.skipDate === today)
   const isPicked = record.pickupStatus === 'sudah_diambil'
 
-  async function onConfirmPickup(): Promise<void> {
+  async function confirmPickup(): Promise<void> {
     const parsed = Number.parseInt(bagsCount, 10)
     if (Number.isNaN(parsed) || parsed < 0) {
       onErrorSetter('Jumlah karung harus berupa angka 0 atau lebih.')
@@ -149,6 +248,7 @@ function ActionDialog({
     }
     setBusy(true)
     try {
+      // Offline-first: tulis Dexie → antre outbox; server penentu saat sinkron.
       await recordPickup(record, parsed)
       onDone()
       onClose()
@@ -159,13 +259,66 @@ function ActionDialog({
     }
   }
 
-  async function onConfirmSkip(): Promise<void> {
+  return (
+    <QDialog
+      title={record.house.ownerName}
+      subtitle={`RT ${record.house.rt} · Gang ${record.house.gang} · Jatuh tempo ${record.dueDate}`}
+      onClose={onClose}
+      error={error}
+    >
+      {isPicked ? (
+        <div className="space-y-3">
+          <p className="text-sm text-neutral-700">
+            Sudah diambil ({record.bagsCount ?? '—'} karung). Pembayaran dicatat di layar
+            Kasbon/Uang.
+          </p>
+          <Button label="Tutup" variant="pill-green" onClick={onClose} />
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <TextField
+            name="bagsCount"
+            label="Jumlah karung"
+            type="text"
+            showLabel
+            value={bagsCount}
+            onChange={(value) => {
+              setBagsCount(value)
+            }}
+          />
+          <Button
+            label="Simpan Pengambilan"
+            variant="pill-green"
+            loading={busy}
+            onClick={() => {
+              void confirmPickup()
+            }}
+          />
+        </div>
+      )}
+    </QDialog>
+  )
+}
+
+/** F8 — Skip: alasan WAJIB (aturan bisnis) → POST /pickups/:id/skip (upsert per hari). */
+function SkipDialog({
+  record,
+  onClose,
+  onDone,
+  onErrorSetter,
+  error,
+}: DialogBaseProps): React.ReactElement {
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function confirmSkip(): Promise<void> {
     if (reason.trim() === '') {
       onErrorSetter('Alasan skip wajib diisi (aturan bisnis).')
       return
     }
     setBusy(true)
     try {
+      // Offline-first: tulis Dexie → antre outbox (id client = clientRef, aman diulang).
       await skipPickup(record, reason.trim())
       onDone()
       onClose()
@@ -177,86 +330,31 @@ function ActionDialog({
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Aksi untuk ${record.house.ownerName}`}
-      className="fixed inset-0 z-20 flex items-end bg-black/40 p-4"
+    <QDialog
+      title={record.house.ownerName}
+      subtitle={`RT ${record.house.rt} · Gang ${record.house.gang} · Skip hari ini wajib beralasan`}
+      onClose={onClose}
+      error={error}
     >
-      {/* Latar klik-tutup: button penuh agar patuh a11y (bisa difokus & Enter). */}
-      <button
-        type="button"
-        aria-label="Tutup dialog"
-        className="absolute inset-0 cursor-default"
-        onClick={onClose}
-      />
-      <div className="relative w-full rounded-3xl bg-white p-5 shadow-lg">
-        <h2 className="text-base font-bold text-neutral-900">{record.house.ownerName}</h2>
-        <p className="text-xs text-neutral-600">
-          RT {record.house.rt} · Gang {record.house.gang} · Jatuh tempo {record.dueDate}
-        </p>
-
-        {error !== null ? (
-          <p role="alert" className="mt-2 text-xs text-status-kasbon">
-            {error}
-          </p>
-        ) : null}
-
-        {isPicked ? (
-          <div className="mt-4 space-y-3">
-            <p className="text-sm text-neutral-700">
-              Sudah diambil ({record.bagsCount ?? '—'} karung). Pembayaran menyusul di layar Uang
-              (Iris 4).
-            </p>
-            <Button label="Tutup" variant="pill-green" onClick={onClose} />
-          </div>
-        ) : (
-          <div className="mt-4 space-y-4">
-            <div>
-              <p className="mb-1 px-1 text-xs font-semibold text-neutral-700">Ambil sampah</p>
-              <TextField
-                name="bagsCount"
-                label="Jumlah karung"
-                type="text"
-                showLabel={false}
-                value={bagsCount}
-                onChange={(value) => {
-                  setBagsCount(value)
-                }}
-              />
-              <Button
-                label={skippedToday ? 'Ambil sekarang' : 'Ambil'}
-                variant="pill-green"
-                loading={busy}
-                onClick={() => {
-                  void onConfirmPickup()
-                }}
-              />
-            </div>
-            <div>
-              <p className="mb-1 px-1 text-xs font-semibold text-neutral-700">
-                Skip (wajib alasan)
-              </p>
-              <TextField
-                name="skipReason"
-                label="Alasan skip"
-                value={reason}
-                onChange={(value) => {
-                  setReason(value)
-                }}
-              />
-              <Button
-                label="Skip"
-                variant="pill-green"
-                loading={busy}
-                onClick={() => {
-                  void onConfirmSkip()
-                }}
-              />
-            </div>
-          </div>
-        )}
+      <div className="space-y-4">
+        <TextField
+          name="skipReason"
+          label="Alasan skip"
+          value={reason}
+          onChange={(value) => {
+            setReason(value)
+          }}
+          showLabel
+        />
+        <Button
+          label="Simpan Skip"
+          variant="pill-green"
+          loading={busy}
+          onClick={() => {
+            void confirmSkip()
+          }}
+        />
       </div>
-    </div>
+    </QDialog>
   )
 }
