@@ -17,6 +17,7 @@ import { Button } from '@/shared/components/ui/Button'
 import { useToast } from '@/shared/components/ui/toast-constants'
 import { formatWibDateLabel } from '@/shared/lib/date'
 import { navigate } from '@/shared/lib/router'
+import { BackButton } from '@/shared/components/ui/BackButton'
 
 /**
  * F6/F7/F8 — Daftar Rumah petugas:
@@ -76,7 +77,8 @@ export function HouseListPage(): React.ReactElement {
   return (
     <div className="relative min-h-[calc(100dvh-3.5rem)] bg-surface">
       <header className="rounded-b-3xl bg-brand px-5 pt-3 pb-4">
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-between">
+          <BackButton />
           <span className="text-[9px] font-bold tracking-wide text-white">BERSHIKU</span>
         </div>
         <div className="mt-2 flex items-center gap-2 rounded-full bg-white px-4 py-2.5 shadow-sm">
