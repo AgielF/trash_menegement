@@ -106,6 +106,24 @@ export async function listTodayFromDb(): Promise<PickupRow[]> {
   )
 }
 
+/** Record pengambilan dengan aksi pickup/skip yang belum tersinkron ke server. */
+export async function listPendingPickupIds(): Promise<ReadonlySet<string>> {
+  const items = await db.outbox.where('status').anyOf(['pending', 'sending', 'failed']).toArray()
+  const pendingIds = new Set<string>()
+  for (const item of items) {
+    const prefix = '/pickups/'
+    const suffix = item.url.endsWith('/pickup')
+      ? '/pickup'
+      : item.url.endsWith('/skip')
+        ? '/skip'
+        : null
+    if (!item.url.startsWith(prefix) || suffix === null) continue
+    const recordId = item.url.slice(prefix.length, -suffix.length)
+    if (recordId !== '') pendingIds.add(recordId)
+  }
+  return pendingIds
+}
+
 /** Ringkasan kartu Beranda (progres, Karung, Uang) — logika murni di atas data Dexie. */
 export interface BerandaSnapshot {
   pickedToday: number

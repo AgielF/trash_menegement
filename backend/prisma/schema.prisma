@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id    String     @id @default(uuid())
+  name  String     @unique
+  users UserRole[]
+
+  @@map("roles")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  fullName     String    @map("full_name")
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  status       String    @default("pending")
+  approvedById String?   @map("approved_by")
+  approvedAt   DateTime? @map("approved_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  roles         UserRole[]
+  approvedBy    User?               @relation("UserApproval", fields: [approvedById], references: [id])
+  approvedUsers User[]              @relation("UserApproval")
+  houses        House[]             @relation("CollectorHouses")
+  pickups       PickupRecord[]
+  payments      Payment[]
+  sessions      CollectionSession[]
+  importBatches ImportBatch[]
+  feeHistories  HouseFeeHistory[]
+  settings      Setting[]
+
+  @@map("users")
+}
+
+model UserRole {
+  userId String @map("user_id")
+  roleId String @map("role_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model House {
+  id            String    @id @default(uuid())
+  ownerName     String    @map("owner_name")
+  rt            String
+  gang          String
+  addressNote   String?   @map("address_note")
+  collectorId   String    @map("collector_id")
+  defaultFee    Int       @default(5000) @map("default_fee")
+  nextDueDate   DateTime? @map("next_due_date") @db.Date
+  intervalDays  Int       @default(7) @map("interval_days")
+  importBatchId String?   @map("import_batch_id")
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  collector    User              @relation("CollectorHouses", fields: [collectorId], references: [id], onDelete: Restrict)
+  importBatch  ImportBatch?      @relation(fields: [importBatchId], references: [id], onDelete: Restrict)
+  pickups      PickupRecord[]
+  feeHistories HouseFeeHistory[]
+
+  @@index([collectorId, isActive])
+  @@index([collectorId, nextDueDate])
+  @@map("houses")
+}
+
+model CollectionSession {
+  id          String    @id @default(uuid())
+  collectorId String    @map("collector_id")
+  sessionDate DateTime  @map("session_date") @db.Date
+  status      String    @default("not_started")
+  startedAt   DateTime? @map("started_at")
+  finishedAt  DateTime? @map("finished_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  collector User @relation(fields: [collectorId], references: [id], onDelete: Restrict)
+
+  @@unique([collectorId, sessionDate])
+  @@map("collection_sessions")
+}
+
+model PickupRecord {
+  id            String    @id @default(uuid())
+  houseId       String    @map("house_id")
+  collectorId   String    @map("collector_id")
+  dueDate       DateTime  @map("due_date") @db.Date
+  pickupStatus  String    @default("belum_diambil") @map("pickup_status")
+  pickedAt      DateTime? @map("picked_at")
+  bagsCount     Int?      @map("bags_count")
+  feeAmount     Int       @map("fee_amount")
+  paymentStatus String    @default("belum_bayar") @map("payment_status")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  house     House        @relation(fields: [houseId], references: [id], onDelete: Restrict)
+  collector User         @relation(fields: [collectorId], references: [id], onDelete: Restrict)
+  skips     PickupSkip[]
+  payments  Payment[]
+
+  @@unique([houseId, dueDate])
+  @@index([collectorId, pickupStatus, dueDate])
+  @@index([collectorId, pickedAt])
+  @@index([houseId, pickupStatus])
+  @@map("pickup_records")
+}
+
+model PickupSkip {
+  id        String   @id @default(uuid())
+  recordId  String   @map("record_id")
+  skipDate  DateTime @map("skip_date") @db.Date
+  reason    String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  record PickupRecord @relation(fields: [recordId], references: [id], onDelete: Restrict)
+
+  @@unique([recordId, skipDate])
+  @@map("pickup_skips")
+}
+
+model Payment {
+  id         String    @id @default(uuid())
+  recordId   String    @map("record_id")
+  receivedBy String    @map("received_by")
+  amount     Int
+  paidAt     DateTime  @map("paid_at")
+  note       String?
+  voidedAt   DateTime? @map("voided_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  record   PickupRecord @relation(fields: [recordId], references: [id], onDelete: Restrict)
+  receiver User         @relation(fields: [receivedBy], references: [id], onDelete: Restrict)
+
+  @@index([recordId])
+  @@index([receivedBy, paidAt])
+  @@map("payments")
+}
+
+model HouseFeeHistory {
+  id        String   @id @default(uuid())
+  houseId   String   @map("house_id")
+  oldFee    Int      @map("old_fee")
+  newFee    Int      @map("new_fee")
+  changedBy String   @map("changed_by")
+  changedAt DateTime @map("changed_at")
+
+  house House @relation(fields: [houseId], references: [id], onDelete: Restrict)
+  user  User  @relation(fields: [changedBy], references: [id], onDelete: Restrict)
+
+  @@map("house_fee_history")
+}
+
+model Setting {
+  key       String   @id
+  value     String
+  updatedBy String   @map("updated_by")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [updatedBy], references: [id], onDelete: Restrict)
+
+  @@map("settings")
+}
+
+model ImportBatch {
+  id          String   @id @default(uuid())
+  uploadedBy  String   @map("uploaded_by")
+  importType  String   @map("import_type")
+  fileName    String   @map("file_name")
+  fileType    String   @map("file_type")
+  status      String
+  totalRows   Int      @map("total_rows")
+  successRows Int      @map("success_rows")
+  failedRows  Int      @map("failed_rows")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  uploader User    @relation(fields: [uploadedBy], references: [id], onDelete: Restrict)
+  houses   House[]
+
+  @@map("import_batches")
+}

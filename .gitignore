@@ -1,27 +1,67 @@
-# Dependensi & artefak
+# ==========================================
+# 1. Dependensi & Artefak Build
+# ==========================================
 node_modules/
 dist/
-coverage/
+build/
+out/
+.vite/
+*.tsbuildinfo
+.pnp
+.pnp.js
 
-# Lingkungan & rahasia
+# ==========================================
+# 2. Lingkungan & Rahasia (Sangat Penting)
+# ==========================================
 .env
-.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+# Pengecualian: Tetap simpan file contoh agar tim tahu variabel apa saja yang dibutuhkan
 !.env.example
 
-# Build cache
-*.tsbuildinfo
-.vite/
+# ==========================================
+# 3. Database & Prisma (Lokal)
+# ==========================================
+*.db
+*.db-journal
+backend/prisma/*.db
 
-# Playwright & test artefak
+# ==========================================
+# 4. Logs (Jangan commit file log)
+# ==========================================
+*.log
+backend.log
+frontend.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==========================================
+# 5. Testing & Coverage
+# ==========================================
+coverage/
 playwright-report/
 test-results/
 blob-report/
 
-# Sistem
+# ==========================================
+# 6. Sistem Operasi (OS)
+# ==========================================
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# Contoh: backend dikelola terpisah (beku) — jangan ikut repo frontend
-backend/
-backend.log
-frontend.log
+# ==========================================
+# 7. IDE & Editor
+# ==========================================
+.idea/
+.vscode/
+*.swp
+*.swo

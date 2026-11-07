@@ -6,7 +6,13 @@ import { Button } from '@/shared/components/ui/Button'
 import { PlaceholderAvatar } from '@/shared/components/ui/Placeholder'
 import { CurvedHeader } from '@/shared/components/ui/CurvedHeader'
 import { useToast } from '@/shared/components/ui/toast-constants'
-import { runPush, runPull, refreshPendingCount } from '@/features/sync/service'
+import {
+  runPush,
+  runPull,
+  pushLocalSnapshot,
+  refreshPendingCount,
+  useSyncStore,
+} from '@/features/sync/service'
 import { getTodayWib, formatWibDateLabel } from '@/shared/lib/date'
 import { navigate } from '@/shared/lib/router'
 import {
@@ -94,13 +100,25 @@ export function BerandaPage(): React.ReactElement {
     setSyncing(true)
     try {
       await runPush()
+      const pushed = await pushLocalSnapshot()
       await runPull()
       const count = await refreshPendingCount()
       setPendingCount(count)
-      showToast(
-        count > 0 ? `${count.toString()} data menunggu sinkron.` : 'Sinkronisasi selesai.',
-        'success',
-      )
+      const conflictCount =
+        pushed.houseConflicts.length +
+        pushed.pickupConflicts.length +
+        pushed.paymentConflicts.length
+      const syncError = useSyncStore.getState().lastError
+      if (syncError !== null) {
+        showToast(syncError, 'warning')
+      } else if (conflictCount > 0) {
+        showToast(`Sinkronisasi selesai dengan ${conflictCount.toString()} konflik.`, 'warning')
+      } else {
+        showToast(
+          count > 0 ? `${count.toString()} data masih menunggu sinkron.` : 'Sinkronisasi selesai.',
+          'success',
+        )
+      }
     } catch {
       showToast('Sinkronisasi gagal.', 'error')
     } finally {
@@ -251,18 +269,22 @@ export function BerandaPage(): React.ReactElement {
           />
         </div>
 
-        {pendingCount !== null && pendingCount > 0 ? (
-          <div className="mt-3 flex justify-center">
-            <Button
-              label={syncing ? 'Menyinkronkan…' : `Sinkronkan (${pendingCount.toString()} data)`}
-              variant="pill-green"
-              loading={syncing}
-              onClick={() => {
-                void onSync()
-              }}
-            />
-          </div>
-        ) : null}
+        <div className="mt-3 flex justify-center">
+          <Button
+            label={
+              syncing
+                ? 'Menyinkronkan…'
+                : pendingCount !== null && pendingCount > 0
+                  ? `Sinkronkan (${pendingCount.toString()} data)`
+                  : 'Sinkronkan'
+            }
+            variant="pill-green"
+            loading={syncing}
+            onClick={() => {
+              void onSync()
+            }}
+          />
+        </div>
       </section>
     </div>
   )

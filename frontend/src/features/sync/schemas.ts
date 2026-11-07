@@ -37,15 +37,17 @@ export const syncPickupSchema = z.object({
   bagsCount: z.number().int().min(0).nullable(),
   feeAmount: z.number().int().min(0),
   paymentStatus: z.enum(['belum_bayar', 'sebagian', 'lunas']),
-  house: z.object({
-    id: z.string().min(1),
-    ownerName: z.string(),
-    rt: z.string(),
-    gang: z.string(),
-    addressNote: z.string().nullable(),
-  }),
+  house: z
+    .object({
+      id: z.string().min(1),
+      ownerName: z.string(),
+      rt: z.string(),
+      gang: z.string(),
+      addressNote: z.string().nullable(),
+    })
+    .optional(),
   skips: z.array(syncSkipSchema),
-  createdAt: z.string(),
+  createdAt: z.string().optional(),
   updatedAt: z.string().min(1),
 })
 
@@ -59,6 +61,17 @@ export const pullResponseSchema = z.object({
   settings: z.array(syncSettingSchema),
 })
 
+export const pushResponseSchema = z.object({
+  syncedAt: z.string(),
+  houseSynced: z.number().int().nonnegative(),
+  houseConflicts: z.array(z.string()),
+  pickupSynced: z.number().int().nonnegative(),
+  pickupConflicts: z.array(z.string()),
+  paymentSynced: z.number().int().nonnegative(),
+  paymentConflicts: z.array(z.string()),
+})
+
 export type SyncHouse = z.infer<typeof syncHouseSchema>
 export type SyncPickup = z.infer<typeof syncPickupSchema>
 export type PullResponse = z.infer<typeof pullResponseSchema>
+export type PushResponse = z.infer<typeof pushResponseSchema>

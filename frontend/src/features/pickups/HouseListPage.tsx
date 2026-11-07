@@ -7,12 +7,14 @@ import {
   listTodayFromDb,
   recordPickup,
   skipPickup,
+  listPendingPickupIds,
   todayKey,
 } from './service'
 import { HouseCard } from './HouseCard'
 import { TextField } from '@/shared/components/ui/TextField'
 import { Button } from '@/shared/components/ui/Button'
 import { useToast } from '@/shared/components/ui/toast-constants'
+import { formatWibDateLabel } from '@/shared/lib/date'
 
 /**
  * F6/F7/F8 — Daftar Rumah petugas:
@@ -25,6 +27,7 @@ import { useToast } from '@/shared/components/ui/toast-constants'
  */
 export function HouseListPage(): React.ReactElement {
   const [rows, setRows] = useState<PickupRow[]>([])
+  const [pendingRecordIds, setPendingRecordIds] = useState<ReadonlySet<string>>(() => new Set())
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [offline, setOffline] = useState(false)
@@ -42,13 +45,17 @@ export function HouseListPage(): React.ReactElement {
         // Gagal-request dianggap offline (playbook); data dari Dexie.
         setOffline(!(error instanceof ApiError && error.status !== null))
       }
-      setRows(await listTodayFromDb())
+      const [todayRows, pendingIds] = await Promise.all([listTodayFromDb(), listPendingPickupIds()])
+      setRows(todayRows)
+      setPendingRecordIds(pendingIds)
       setLoading(false)
     })()
   }, [])
 
   async function refresh(): Promise<void> {
-    setRows(await listTodayFromDb())
+    const [todayRows, pendingIds] = await Promise.all([listTodayFromDb(), listPendingPickupIds()])
+    setRows(todayRows)
+    setPendingRecordIds(pendingIds)
   }
 
   const filtered = useMemo(() => {
@@ -123,6 +130,7 @@ export function HouseListPage(): React.ReactElement {
                       pickupStatus: row.pickupStatus,
                       paymentStatus: row.paymentStatus,
                       skippedToday,
+                      pendingSync: pendingRecordIds.has(row.id),
                     }}
                   />
                 </button>
@@ -265,7 +273,7 @@ function PickupDialog({
   return (
     <QDialog
       title={record.house.ownerName}
-      subtitle={`RT ${record.house.rt} · Gang ${record.house.gang} · Jatuh tempo ${record.dueDate}`}
+      subtitle={`RT ${record.house.rt} · Gang ${record.house.gang} · Jatuh tempo ${formatWibDateLabel(new Date(record.dueDate))}`}
       onClose={onClose}
       error={error}
     >

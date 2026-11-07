@@ -5,6 +5,7 @@ type CardData = CardStatusInput & {
   ownerName: string
   rt: string
   gang: string
+  pendingSync?: boolean
 }
 
 /**
@@ -23,9 +24,14 @@ export function HouseCard({ house }: { house: CardData }): React.ReactElement {
             RT {house.rt} · Gang {house.gang}
           </p>
         </div>
-        <p className="shrink-0 text-right text-xs font-semibold text-neutral-900">
-          {presentation.label}
-        </p>
+        <div className="shrink-0 text-right">
+          <p className="text-xs font-semibold text-neutral-900">{presentation.label}</p>
+          {house.pendingSync === true ? (
+            <p className="mt-1 text-[10px] font-semibold text-amber-800" role="status">
+              ⏳ Menunggu Sinkronisasi
+            </p>
+          ) : null}
+        </div>
       </div>
     </article>
   )

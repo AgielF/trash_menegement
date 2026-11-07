@@ -1,7 +1,7 @@
 import { ApiError, http, request } from '@/shared/api/http'
 import { db } from '@/shared/db/db'
 import type { OutboxItem } from '@/shared/db/db'
-import { pullResponseSchema } from './schemas'
+import { pullResponseSchema, pushResponseSchema, type PushResponse } from './schemas'
 import { create } from 'zustand'
 
 /**
@@ -55,19 +55,87 @@ export async function runPull(): Promise<void> {
       for (const pickup of response.pickups) {
         const local = await db.pickups.get(pickup.id)
         if (local === undefined || local.updatedAt <= pickup.updatedAt) {
-          await db.pickups.put(pickup)
+          const house = await db.houses.get(pickup.houseId)
+          await db.pickups.put({
+            ...pickup,
+            house:
+              pickup.house ??
+              (house !== undefined
+                ? {
+                    id: house.id,
+                    ownerName: house.ownerName,
+                    rt: house.rt,
+                    gang: house.gang,
+                    addressNote: house.addressNote,
+                  }
+                : (local?.house ?? {
+                    id: pickup.houseId,
+                    ownerName: '',
+                    rt: '',
+                    gang: '',
+                    addressNote: null,
+                  })),
+          })
         }
       }
-      if (response.since !== null) {
-        // Jadikan watermark baru = serverTime agar perubahan berikutnya terserong.
-        await db.meta.put({ key: LAST_SYNC_KEY, value: response.serverTime })
-      }
+      // Simpan watermark baik pada sync pertama maupun sync inkremental.
+      await db.meta.put({ key: LAST_SYNC_KEY, value: response.serverTime })
     })
     setSync({ lastPulledAt: response.serverTime })
   } catch {
     // Catch galat sinkron secara diam: layar tetap menyaji data Dexie.
     setSync({ lastError: 'Sinkronisasi gagal — melanjutkan mode offline.' })
   }
+}
+
+/** Push snapshot lokal ke POST /sync/push; server menyelesaikan idempotensi/konflik. */
+export async function pushLocalSnapshot(): Promise<PushResponse> {
+  const [houses, pickups, payments] = await Promise.all([
+    db.houses.toArray(),
+    db.pickups.toArray(),
+    db.payments.toArray(),
+  ])
+  return request(
+    {
+      method: 'POST',
+      url: '/sync/push',
+      data: {
+        houses: houses.map((house) => ({
+          id: house.id,
+          ownerName: house.ownerName,
+          rt: house.rt,
+          gang: house.gang,
+          addressNote: house.addressNote,
+          defaultFee: house.defaultFee,
+          nextDueDate: house.nextDueDate,
+          intervalDays: house.intervalDays,
+          isActive: house.isActive,
+          updatedAt: house.updatedAt,
+        })),
+        pickups: pickups.map((pickup) => ({
+          id: pickup.id,
+          houseId: pickup.houseId,
+          dueDate: pickup.dueDate,
+          pickupStatus: pickup.pickupStatus,
+          pickedAt: pickup.pickedAt,
+          bagsCount: pickup.bagsCount,
+          feeAmount: pickup.feeAmount,
+          paymentStatus: pickup.paymentStatus,
+          updatedAt: pickup.updatedAt,
+        })),
+        payments: payments
+          .filter((payment) => payment.voidedAt === null)
+          .map((payment) => ({
+            id: payment.id,
+            recordId: payment.recordId,
+            amount: payment.amount,
+            paidAt: payment.paidAt,
+            note: payment.note,
+          })),
+      },
+    },
+    pushResponseSchema,
+  )
 }
 
 /** Keluarkan satu item outbox; return true bila perlu berhenti (jaringan/gagal-tetap). */
