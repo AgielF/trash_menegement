@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsString,
   Min,
+  IsUUID,
 } from 'class-validator';
 
 export class UpdateHouseDto {
@@ -36,4 +37,8 @@ export class UpdateHouseDto {
   @IsDateString({}, { message: 'Format tanggal harus ISO (YYYY-MM-DD)' })
   @IsOptional()
   nextDueDate?: string;
+
+  @IsUUID()
+  @IsOptional()
+  collectorId?: string;
 }

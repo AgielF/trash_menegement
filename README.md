@@ -26,14 +26,25 @@ npx prisma migrate dev
 npm run start:dev
 ```
 
-## Database Seeding
+## Database Setup (Untuk Tim)
 
-Setelah database dan migrasi siap, jalankan perintah berikut dari folder root repository untuk mengisi data dummy tim (admin, petugas, rumah, dan tagihan):
+Siapkan database dan isi data dummy tim (admin, petugas, rumah, dan tagihan) dengan menjalankan perintah berikut dari folder root repository:
 
 ```bash
 cd backend
-npx prisma migrate reset --force  # (Opsional) Hapus DB lama dan buat baru
-npx prisma db seed                # Isi dengan data dummy tim
+npx prisma migrate dev
+npm run db:seed
 ```
 
 Seeder dapat dijalankan berulang kali. Akun default: `admin@bersihku.com` (password `admin123`) dan `agiel@example.com` (password `password123`).
+
+## Reset Database (⚠️ Hapus Data)
+
+Untuk mengembalikan database ke kondisi awal setelah seeder, jalankan perintah berikut dari folder root repository:
+
+```bash
+cd backend
+npm run db:reset
+```
+
+**⚠️ Perintah ini menghapus semua data transaksi yang ada (termasuk rumah baru dan pembayaran) dan mengembalikannya hanya ke data dummy dari seeder.**

@@ -12,9 +12,12 @@ import { HouseListPage } from '@/features/pickups/HouseListPage'
 import { KasbonPage } from '@/features/payment/KasbonPage'
 import { KasbonDetailPage } from '@/features/payment/KasbonDetailPage'
 import { UangPage } from '@/features/payment/UangPage'
-import { AdminPage } from '@/features/admin/AdminPage'
+import { AdminDashboardPage } from '@/features/admin/AdminDashboardPage'
 import { AdminPendingPage } from '@/features/admin/AdminPendingPage'
 import { AdminSettingsPage } from '@/features/admin/AdminSettingsPage'
+import { AdminHousesPage } from '@/features/admin/AdminHousesPage'
+import { ImportPage } from '@/features/admin/ImportPage'
+import { CreateHousePage } from '@/features/houses/CreateHousePage'
 import { NavigateStub } from './NavigateStub'
 import { ToastProvider } from '@/shared/components/ui/Toast'
 
@@ -37,8 +40,22 @@ const PUBLIC_ROUTES: readonly RouteConfig[] = [
 ]
 
 const SECURE_ROUTES: readonly RouteConfig[] = [
-  { path: '/', component: () => <BerandaPage /> },
+  {
+    path: '/',
+    component: () =>
+      useAuthStore.getState().user?.roles.includes('admin') === true ? (
+        <AdminDashboardPage />
+      ) : (
+        <BerandaPage />
+      ),
+  },
   { path: '/rumah', component: () => <HouseListPage /> },
+  { path: '/houses/create', component: () => <CreateHousePage /> },
+  {
+    path: '/houses/edit/:houseId',
+    component: ({ param }) => <CreateHousePage houseId={param ?? ''} />,
+    adminOnly: true,
+  },
   { path: '/profile', component: () => <BerandaPage /> },
   { path: '/kasbon', component: () => <KasbonPage /> },
   {
@@ -47,9 +64,11 @@ const SECURE_ROUTES: readonly RouteConfig[] = [
   },
   { path: '/uang', component: () => <UangPage /> },
   // Halaman admin: cek role di UI hanya untuk UX; otorisasi di server (RolesGuard).
-  { path: '/admin', component: () => <AdminPage />, adminOnly: true },
+  { path: '/admin', component: () => <AdminDashboardPage />, adminOnly: true },
   { path: '/admin/pending', component: () => <AdminPendingPage />, adminOnly: true },
   { path: '/admin/settings', component: () => <AdminSettingsPage />, adminOnly: true },
+  { path: '/admin/houses', component: () => <AdminHousesPage />, adminOnly: true },
+  { path: '/admin/import', component: () => <ImportPage />, adminOnly: true },
 ]
 
 export function App(): React.ReactElement {

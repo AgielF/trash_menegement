@@ -98,7 +98,10 @@ export async function skipPickup(record: PickupRow, reason: string): Promise<Pic
  */
 export async function listTodayFromDb(): Promise<PickupRow[]> {
   const today = todayKey()
-  const rows = await db.pickups.where('dueDate').belowOrEqual(today).toArray()
+  // API/Dexie dueDate is usually an ISO timestamp (e.g. YYYY-MM-DDT00:00:00.000Z),
+  // so comparing it with a date-only YYYY-MM-DD excludes same-day records lexically.
+  const endOfToday = `${today}T23:59:59.999Z`
+  const rows = await db.pickups.where('dueDate').belowOrEqual(endOfToday).toArray()
   return rows.filter(
     (row) =>
       row.pickupStatus === 'belum_diambil' ||

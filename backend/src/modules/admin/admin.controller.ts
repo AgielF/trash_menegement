@@ -18,6 +18,21 @@ export class AdminController {
     return this.adminService.getPendingUsers();
   }
 
+  @Get('houses')
+  getHouses() {
+    return this.adminService.getHouses();
+  }
+
+  @Get('collectors')
+  getCollectors() {
+    return this.adminService.getCollectors();
+  }
+
+  @Get('stats')
+  getStats() {
+    return this.adminService.getStats();
+  }
+
   @Patch('approve/:userId')
   approveUser(
     @Param('userId') userId: string,

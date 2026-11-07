@@ -20,8 +20,7 @@ export function nowWib(): Date {
 
 /** Tanggal-nol (pukul 00:00 UTC) hari WIB saat ini. */
 export function getTodayWib(): Date {
-  const dateOfDayStart = new Date(Date.now() + WIB_OFFSET_MS)
-  return wibStartOfUtcDay(dateOfDayStart)
+  return wibStartOfUtcDay(new Date())
 }
 
 /**

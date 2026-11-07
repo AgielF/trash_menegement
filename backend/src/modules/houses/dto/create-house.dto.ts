@@ -3,6 +3,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Min,
   IsNotEmpty,
 } from 'class-validator';
@@ -37,4 +38,8 @@ export class CreateHouseDto {
   @IsDateString({}, { message: 'Format tanggal harus ISO (YYYY-MM-DD)' })
   @IsNotEmpty({ message: 'Tanggal jadwal pertama wajib diisi' })
   nextDueDate: string;
+
+  @IsUUID()
+  @IsOptional()
+  collectorId?: string;
 }

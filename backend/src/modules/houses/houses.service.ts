@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateHouseDto } from './dto/create-house.dto';
@@ -8,7 +13,17 @@ import { UpdateHouseDto } from './dto/update-house.dto';
 export class HousesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createHouseDto: CreateHouseDto, collectorId: string) {
+  async create(
+    createHouseDto: CreateHouseDto,
+    userId: string,
+    isAdmin = false,
+  ) {
+    const collectorId = isAdmin ? createHouseDto.collectorId : userId;
+    if (!collectorId) {
+      throw new BadRequestException('Petugas wajib dipilih untuk rumah baru');
+    }
+    if (isAdmin) await this.ensureApprovedCollector(collectorId);
+
     const house = await this.prisma.house.create({
       data: {
         ownerName: createHouseDto.ownerName,
@@ -30,8 +45,21 @@ export class HousesService {
    * Jika nominal default berubah: catatan yang belum diambil ikut diperbarui,
    * dan perubahan tercatat di riwayat (`HouseFeeHistory`).
    */
-  async update(houseId: string, dto: UpdateHouseDto, userId: string) {
-    const house = await this.findOne(houseId, userId);
+  async update(
+    houseId: string,
+    dto: UpdateHouseDto,
+    userId: string,
+    isAdmin = false,
+  ) {
+    if (dto.collectorId !== undefined && !isAdmin) {
+      throw new ForbiddenException(
+        'Hanya admin yang dapat mengubah petugas rumah',
+      );
+    }
+    const house = await this.findOne(houseId, userId, isAdmin);
+    if (dto.collectorId !== undefined) {
+      await this.ensureApprovedCollector(dto.collectorId);
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const data: Prisma.HouseUncheckedUpdateInput = {};
@@ -43,6 +71,13 @@ export class HousesService {
       if (dto.intervalDays !== undefined) data.intervalDays = dto.intervalDays;
       if (dto.nextDueDate !== undefined) {
         data.nextDueDate = new Date(dto.nextDueDate);
+      }
+      if (dto.collectorId !== undefined) {
+        data.collectorId = dto.collectorId;
+        await tx.pickupRecord.updateMany({
+          where: { houseId: house.id, pickupStatus: 'belum_diambil' },
+          data: { collectorId: dto.collectorId },
+        });
       }
 
       if (dto.defaultFee !== undefined && dto.defaultFee !== house.defaultFee) {
@@ -69,8 +104,8 @@ export class HousesService {
   }
 
   /** Hapus rumah secara lembut: tidak hilang dari riwayat, tapi tidak aktif. */
-  async softDelete(houseId: string, userId: string) {
-    const house = await this.findOne(houseId, userId);
+  async softDelete(houseId: string, userId: string, isAdmin = false) {
+    const house = await this.findOne(houseId, userId, isAdmin);
 
     return this.prisma.house.update({
       where: { id: house.id },
@@ -85,13 +120,29 @@ export class HousesService {
     });
   }
 
-  async findOne(id: string, collectorId: string) {
+  async findOne(id: string, collectorId: string, isAdmin = false) {
     const house = await this.prisma.house.findFirst({
-      where: { id, collectorId, deletedAt: null },
+      where: { id, ...(isAdmin ? {} : { collectorId }), deletedAt: null },
     });
     if (!house) {
       throw new NotFoundException('Rumah tidak ditemukan');
     }
     return house;
+  }
+
+  private async ensureApprovedCollector(collectorId: string): Promise<void> {
+    const collector = await this.prisma.user.findFirst({
+      where: {
+        id: collectorId,
+        status: 'approved',
+        roles: { some: { role: { name: 'collector' } } },
+      },
+      select: { id: true },
+    });
+    if (!collector) {
+      throw new BadRequestException(
+        'Petugas tidak ditemukan atau belum disetujui',
+      );
+    }
   }
 }

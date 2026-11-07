@@ -6,6 +6,7 @@ import { CurvedHeader } from '@/shared/components/ui/CurvedHeader'
 import { useToast } from '@/shared/components/ui/toast-constants'
 import { fetchAdminSettings, setKasbonLimit } from '@/features/payment/api'
 import { formatRupiah } from '@/features/payment/clamp'
+import { navigate } from '@/shared/lib/router'
 
 /**
  * F16 — Halaman Pengaturan (admin-only): batas kasbon global
@@ -63,6 +64,51 @@ export function AdminSettingsPage(): React.ReactElement {
       </CurvedHeader>
 
       <section className="relative -mt-8 rounded-tl-[3rem] bg-surface px-5 pt-6">
+        <div className="mb-5 grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => {
+              navigate('/admin/pending')
+            }}
+            className="rounded-2xl bg-white px-4 py-4 text-left shadow-sm focus-visible:ring-2 focus-visible:ring-action"
+          >
+            <h2 className="text-sm font-bold text-neutral-900">Persetujuan Petugas</h2>
+            <p className="mt-1 text-xs text-neutral-600">
+              Tinjau dan kelola user yang menunggu verifikasi.
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              navigate('/admin/houses')
+            }}
+            className="rounded-2xl bg-white px-4 py-4 text-left shadow-sm focus-visible:ring-2 focus-visible:ring-action"
+          >
+            <h2 className="text-sm font-bold text-neutral-900">Manajemen Rumah &amp; Jadwal</h2>
+            <p className="mt-1 text-xs text-neutral-600">
+              Kelola rumah, petugas, nominal, dan jadwal.
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              navigate('/admin/import')
+            }}
+            className="rounded-2xl bg-white px-4 py-4 text-left shadow-sm focus-visible:ring-2 focus-visible:ring-action"
+          >
+            <h2 className="text-sm font-bold text-neutral-900">Import Data Rumah</h2>
+            <p className="mt-1 text-xs text-neutral-600">
+              Pratinjau dan import data rumah dari spreadsheet.
+            </p>
+          </button>
+          <div className="rounded-2xl bg-white px-4 py-4 shadow-sm">
+            <h2 className="text-sm font-bold text-neutral-900">Pengaturan Global</h2>
+            <p className="mt-1 text-xs text-neutral-600">
+              Konfigurasi yang berlaku untuk seluruh aplikasi.
+            </p>
+          </div>
+        </div>
+
         {error !== null ? (
           <p role="alert" className="mb-3 text-xs text-status-kasbon">
             {error}

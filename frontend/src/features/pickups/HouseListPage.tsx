@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { PickupRow } from '@/shared/db/db'
 import { ApiError } from '@/shared/api/http'
+import { useAuthStore } from '@/features/auth/store'
 import {
   cacheTodayRows,
   fetchToday,
@@ -15,6 +16,7 @@ import { TextField } from '@/shared/components/ui/TextField'
 import { Button } from '@/shared/components/ui/Button'
 import { useToast } from '@/shared/components/ui/toast-constants'
 import { formatWibDateLabel } from '@/shared/lib/date'
+import { navigate } from '@/shared/lib/router'
 
 /**
  * F6/F7/F8 — Daftar Rumah petugas:
@@ -26,6 +28,8 @@ import { formatWibDateLabel } from '@/shared/lib/date'
  *   POST /pickups/:id/skip. Keduanya offline-first (Dexie + outbox).
  */
 export function HouseListPage(): React.ReactElement {
+  const user = useAuthStore((state) => state.user)
+  const canAddHouse = user?.roles.includes('admin') === true
   const [rows, setRows] = useState<PickupRow[]>([])
   const [pendingRecordIds, setPendingRecordIds] = useState<ReadonlySet<string>>(() => new Set())
   const [query, setQuery] = useState('')
@@ -91,6 +95,19 @@ export function HouseListPage(): React.ReactElement {
       </header>
 
       <main className="flex flex-col gap-3 px-4 py-4">
+        {canAddHouse ? (
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                navigate('/houses/create')
+              }}
+              className="rounded-full bg-card-green px-5 py-2.5 text-xs font-bold tracking-wide text-white shadow-sm focus-visible:ring-2 focus-visible:ring-action"
+            >
+              + Tambah Rumah
+            </button>
+          </div>
+        ) : null}
         {offline ? (
           <p
             role="status"

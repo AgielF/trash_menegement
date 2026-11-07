@@ -13,6 +13,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { HousesService } from './houses.service';
 import { CreateHouseDto } from './dto/create-house.dto';
 import { UpdateHouseDto } from './dto/update-house.dto';
+import type { AuthenticatedUser } from '../auth/jwt.strategy';
 
 @UseGuards(JwtAuthGuard)
 @Controller('houses')
@@ -22,9 +23,13 @@ export class HousesController {
   @Post()
   create(
     @Body() createHouseDto: CreateHouseDto,
-    @CurrentUser('id') collectorId: string,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.housesService.create(createHouseDto, collectorId);
+    return this.housesService.create(
+      createHouseDto,
+      user.id,
+      user.roles.includes('admin'),
+    );
   }
 
   @Get()
@@ -36,13 +41,22 @@ export class HousesController {
   update(
     @Param('id') id: string,
     @Body() updateHouseDto: UpdateHouseDto,
-    @CurrentUser('id') collectorId: string,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.housesService.update(id, updateHouseDto, collectorId);
+    return this.housesService.update(
+      id,
+      updateHouseDto,
+      user.id,
+      user.roles.includes('admin'),
+    );
   }
 
   @Delete(':id')
-  softDelete(@Param('id') id: string, @CurrentUser('id') collectorId: string) {
-    return this.housesService.softDelete(id, collectorId);
+  softDelete(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.housesService.softDelete(
+      id,
+      user.id,
+      user.roles.includes('admin'),
+    );
   }
 }

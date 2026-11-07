@@ -35,6 +35,42 @@ export class AdminService {
     });
   }
 
+  async getHouses() {
+    return this.prisma.house.findMany({
+      where: { deletedAt: null },
+      include: {
+        collector: { select: { id: true, fullName: true, email: true } },
+      },
+      orderBy: [{ rt: 'asc' }, { gang: 'asc' }, { ownerName: 'asc' }],
+    });
+  }
+
+  async getCollectors() {
+    return this.prisma.user.findMany({
+      where: {
+        status: 'approved',
+        roles: { some: { role: { name: 'collector' } } },
+      },
+      select: { id: true, fullName: true, email: true },
+      orderBy: [{ fullName: 'asc' }, { email: 'asc' }],
+    });
+  }
+
+  async getStats() {
+    const [totalHouses, totalCollectors, pendingUsers] = await Promise.all([
+      this.prisma.house.count({ where: { deletedAt: null, isActive: true } }),
+      this.prisma.user.count({
+        where: {
+          status: 'approved',
+          roles: { some: { role: { name: 'collector' } } },
+        },
+      }),
+      this.prisma.user.count({ where: { status: 'pending' } }),
+    ]);
+
+    return { totalHouses, totalCollectors, pendingUsers };
+  }
+
   async approveUser(userId: string, adminId?: string) {
     return this.decideUser(userId, 'approved', adminId);
   }

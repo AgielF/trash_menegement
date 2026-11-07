@@ -108,6 +108,38 @@ export function AdminPage(): React.ReactElement {
             <h2 className="text-sm font-bold text-neutral-900">Pengaturan Global</h2>
             <p className="text-xs text-neutral-600">Atur batas kasbon dan konfigurasi lain</p>
           </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              navigate('/admin/houses')
+            }}
+            className="rounded-2xl bg-white px-4 py-3 text-left shadow-sm focus-visible:ring-2 focus-visible:ring-action"
+          >
+            <h2 className="text-sm font-bold text-neutral-900">Manajemen Rumah &amp; Jadwal</h2>
+            <p className="text-xs text-neutral-600">Lihat rumah, petugas, nominal, dan jadwal</p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              navigate('/admin/import')
+            }}
+            className="rounded-2xl bg-white px-4 py-3 text-left shadow-sm focus-visible:ring-2 focus-visible:ring-action"
+          >
+            <h2 className="text-sm font-bold text-neutral-900">Import Data Rumah</h2>
+            <p className="text-xs text-neutral-600">Pratinjau dan unggah data dari spreadsheet</p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              navigate('/houses/create')
+            }}
+            className="rounded-full bg-card-green px-5 py-3 text-center text-xs font-bold tracking-widest text-white shadow-sm focus-visible:ring-2 focus-visible:ring-action"
+          >
+            + Tambah Rumah
+          </button>
         </div>
 
         {loading ? (
