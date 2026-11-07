@@ -23,3 +23,5 @@ Thumbs.db
 
 # Contoh: backend dikelola terpisah (beku) — jangan ikut repo frontend
 backend/
+backend.log
+frontend.log

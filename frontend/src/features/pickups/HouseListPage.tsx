@@ -12,6 +12,7 @@ import {
 import { HouseCard } from './HouseCard'
 import { TextField } from '@/shared/components/ui/TextField'
 import { Button } from '@/shared/components/ui/Button'
+import { useToast } from '@/shared/components/ui/toast-constants'
 
 /**
  * F6/F7/F8 — Daftar Rumah petugas:
@@ -63,7 +64,7 @@ export function HouseListPage(): React.ReactElement {
 
   return (
     <div className="relative min-h-[calc(100dvh-3.5rem)] bg-surface">
-      <header className="rounded-b-3xl bg-brand px-5 pt-4 pb-5">
+      <header className="rounded-b-3xl bg-brand px-5 pt-3 pb-4">
         <div className="flex items-center justify-end">
           <span className="text-[9px] font-bold tracking-wide text-white">BERSHIKU</span>
         </div>
@@ -237,6 +238,7 @@ function PickupDialog({
     record.bagsCount !== null ? String(record.bagsCount) : '1',
   )
   const [busy, setBusy] = useState(false)
+  const { showToast } = useToast()
 
   const isPicked = record.pickupStatus === 'sudah_diambil'
 
@@ -252,6 +254,7 @@ function PickupDialog({
       await recordPickup(record, parsed)
       onDone()
       onClose()
+      showToast(`Pengambilan ${parsed.toString()} karung tercatat.`, 'success')
     } catch (caught: unknown) {
       onErrorSetter(caught instanceof Error ? caught.message : 'Gagal menyimpan.')
     } finally {
@@ -310,6 +313,7 @@ function SkipDialog({
 }: DialogBaseProps): React.ReactElement {
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
+  const { showToast } = useToast()
 
   async function confirmSkip(): Promise<void> {
     if (reason.trim() === '') {
@@ -322,6 +326,7 @@ function SkipDialog({
       await skipPickup(record, reason.trim())
       onDone()
       onClose()
+      showToast('Rumah di-skip hari ini.', 'info')
     } catch (caught: unknown) {
       onErrorSetter(caught instanceof Error ? caught.message : 'Gagal menyimpan.')
     } finally {

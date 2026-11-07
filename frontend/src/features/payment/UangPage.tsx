@@ -70,7 +70,7 @@ export function UangPage(): React.ReactElement {
         <p className="text-xs font-medium">Rekap uang masuk dan riwayat pembayaran</p>
       </CurvedHeader>
 
-      <section className="relative -mt-6 rounded-tl-[2.5rem] bg-surface px-5 pt-6">
+      <section className="relative -mt-8 rounded-tl-[3rem] bg-surface px-5 pt-6">
         <div role="tablist" aria-label="Rentang rekap" className="flex gap-2">
           {RANGES.map((item) => (
             <button

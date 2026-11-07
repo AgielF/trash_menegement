@@ -4,7 +4,11 @@ import { useAuthStore } from '@/features/auth/store'
 import { Logo } from '@/shared/components/ui/Logo'
 import { Button } from '@/shared/components/ui/Button'
 import { PlaceholderAvatar } from '@/shared/components/ui/Placeholder'
+import { CurvedHeader } from '@/shared/components/ui/CurvedHeader'
+import { useToast } from '@/shared/components/ui/toast-constants'
+import { runPush, runPull, refreshPendingCount } from '@/features/sync/service'
 import { getTodayWib, formatWibDateLabel } from '@/shared/lib/date'
+import { navigate } from '@/shared/lib/router'
 import {
   cacheTodayRows,
   fetchStats,
@@ -29,12 +33,16 @@ async function refreshRemoteToday(): Promise<boolean> {
 
 export function BerandaPage(): React.ReactElement {
   const user = useAuthStore((s) => s.user)
+  const logout = useAuthStore((s) => s.logout)
+  const { showToast } = useToast()
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [local, setLocal] = useState<BerandaSnapshot | null>(null)
   const [offline, setOffline] = useState(false)
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [pendingCount, setPendingCount] = useState<number | null>(null)
 
   useEffect(() => {
     const cancelled = { value: false }
@@ -42,7 +50,6 @@ export function BerandaPage(): React.ReactElement {
       const isOffline = await refreshRemoteToday()
       if (!isOffline) {
         try {
-          // Kartu Beranda sumber utamanya /pickups/stats (kalender WIB di server).
           const response = await fetchStats('today')
           if (!cancelled.value) setStats(response)
         } catch (error) {
@@ -57,6 +64,10 @@ export function BerandaPage(): React.ReactElement {
       setLocal(snapshot)
       setLoading(false)
     })()
+    void (async () => {
+      const count = await refreshPendingCount()
+      if (!cancelled.value) setPendingCount(count)
+    })()
     return () => {
       cancelled.value = true
     }
@@ -67,21 +78,40 @@ export function BerandaPage(): React.ReactElement {
     setStarting(true)
     try {
       await startDayOnline()
-      try {
-        const response = await fetchStats('today')
-        setStats(response)
-      } catch {
-        setStats(null)
-      }
-      setLocal(await gatherBeranda())
+      navigate('/rumah')
     } catch (error) {
-      setStartError(error instanceof ApiError ? error.message : 'Gagal memulai hari (cek koneksi).')
+      if (error instanceof ApiError && error.status === null) {
+        setStartError('Tidak dapat terhubung ke server. Pastikan Anda online.')
+      } else {
+        setStartError(error instanceof ApiError ? error.message : 'Gagal memulai hari.')
+      }
     } finally {
       setStarting(false)
     }
   }
 
-  // Informasi tampilan: prioritas statistik server; offline → hitungan Dexie lokal.
+  async function onSync(): Promise<void> {
+    setSyncing(true)
+    try {
+      await runPush()
+      await runPull()
+      const count = await refreshPendingCount()
+      setPendingCount(count)
+      showToast(
+        count > 0 ? `${count.toString()} data menunggu sinkron.` : 'Sinkronisasi selesai.',
+        'success',
+      )
+    } catch {
+      showToast('Sinkronisasi gagal.', 'error')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  function onLogout(): void {
+    logout({ force: true })
+  }
+
   const progressPercent =
     stats !== null
       ? Math.round(stats.progress)
@@ -98,20 +128,42 @@ export function BerandaPage(): React.ReactElement {
 
   return (
     <div className="relative min-h-[calc(100dvh-3.5rem)] bg-surface pb-6">
-      <header className="relative bg-brand px-5 pt-4 pb-10 text-white">
+      <CurvedHeader>
         <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <PlaceholderAvatar />
-              <span className="text-lg font-bold">{user?.fullName ?? 'Petugas'}</span>
-            </div>
-            <p className="mt-0.5 text-xs font-medium">{formatWibDateLabel(getTodayWib())}</p>
+          <div className="flex items-center gap-2">
+            <PlaceholderAvatar />
+            <span className="text-lg font-bold">{user?.fullName ?? 'Petugas'}</span>
           </div>
-          <Logo />
+          <div className="flex items-center gap-2">
+            <Logo />
+            <button
+              type="button"
+              onClick={onLogout}
+              aria-label="Keluar"
+              title="Keluar"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white transition hover:bg-white/30 focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+            </button>
+          </div>
         </div>
-      </header>
+        <p className="mt-1 text-xs font-medium opacity-90">{formatWibDateLabel(getTodayWib())}</p>
+      </CurvedHeader>
 
-      <section className="relative -mt-6 rounded-tl-[2.5rem] bg-surface px-5 pt-6">
+      <section className="relative -mt-8 rounded-tl-[3rem] bg-surface px-5 pt-6">
         <div className="rounded-2xl bg-white px-5 py-4 shadow-sm">
           <h2 className="text-lg font-bold text-neutral-900">
             Hallo {user?.fullName ?? 'Petugas'}
@@ -198,6 +250,19 @@ export function BerandaPage(): React.ReactElement {
             }}
           />
         </div>
+
+        {pendingCount !== null && pendingCount > 0 ? (
+          <div className="mt-3 flex justify-center">
+            <Button
+              label={syncing ? 'Menyinkronkan…' : `Sinkronkan (${pendingCount.toString()} data)`}
+              variant="pill-green"
+              loading={syncing}
+              onClick={() => {
+                void onSync()
+              }}
+            />
+          </div>
+        ) : null}
       </section>
     </div>
   )

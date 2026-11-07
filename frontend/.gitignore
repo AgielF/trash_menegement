@@ -1,21 +1,67 @@
-# Ketergantungan node
-node_modules
+# ==============================
+# 1. DEPENDENCIES (Raksasa, jangan di-commit)
+# ==============================
+node_modules/
+.pnp
+.pnp.js
 
-# Artefak build dan laporan
-dist
-dev-dist
-coverage
-playwright-report
-test-results
-
-# Lingkungan (.env.example di-commit; sisanya tidak)
+# ==============================
+# 2. ENVIRONMENT VARIABLES (Sangat Rahasia!)
+# ==============================
 .env
-.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+# Pengecualian: Tetap simpan file contoh (contoh isian)
 !.env.example
 
-# Lokal
-*.local
+# ==============================
+# 3. BUILD ARTIFACTS (Hasil Compile)
+# ==============================
+dist/
+build/
+dev-dist/       # Khusus Vite PWA
+out/
 
-# Editor/OS
-.DS_Store
-*.tsbuildinfo
+# ==============================
+# 4. LOGS (Jangan sampai sampah log masuk repo)
+# ==============================
+*.log
+backend.log
+frontend.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==============================
+# 5. TESTING & COVERAGE
+# ==============================
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# ==============================
+# 6. DATABASE & PRISMA
+# ==============================
+*.db
+*.db-journal
+backend/prisma/*.db
+
+# ==============================
+# 7. OS & IDE (File sampah dari laptop/editor)
+# ==============================
+.DS_Store          # Mac
+Thumbs.db          # Windows
+.idea/             # JetBrains/WebStorm
+.vscode/           # VS Code (opsional, kadang tim butuh config-nya)
+*.swp              # Vim
+*.swo
+
+# ==============================
+# 8. CACHE LAINNYA
+# ==============================
+.eslintcache
+.turbo

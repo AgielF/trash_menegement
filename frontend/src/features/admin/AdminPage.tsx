@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ApiError } from '@/shared/api/http'
 import { Button } from '@/shared/components/ui/Button'
 import { TextField } from '@/shared/components/ui/TextField'
+import { CurvedHeader } from '@/shared/components/ui/CurvedHeader'
 import {
   approveUser,
   fetchAdminSettings,
@@ -10,6 +11,7 @@ import {
   setKasbonLimit,
 } from '@/features/payment/api'
 import { formatRupiah } from '@/features/payment/clamp'
+import { navigate } from '@/shared/lib/router'
 import type { AdminSettings, PendingUser } from '@/features/payment/schemas'
 
 /**
@@ -71,60 +73,88 @@ export function AdminPage(): React.ReactElement {
   }
 
   return (
-    <main className="min-h-dvh bg-surface px-4 py-5">
-      <h1 className="text-lg font-bold text-neutral-900">Admin</h1>
-      {error !== null ? (
-        <p role="alert" className="mt-2 text-xs text-status-kasbon">
-          {error}
-        </p>
-      ) : null}
+    <div className="min-h-[calc(100dvh-3.5rem)] bg-surface pb-6">
+      <CurvedHeader>
+        <h1 className="text-lg font-bold">Admin Dashboard</h1>
+        <p className="text-xs font-medium">Panel pengelolaan sistem</p>
+      </CurvedHeader>
 
-      <section aria-labelledby="pending-heading" className="mt-4">
-        <h2 id="pending-heading" className="text-sm font-bold text-neutral-900">
-          User menunggu persetujuan
-        </h2>
+      <section className="relative -mt-8 rounded-tl-[3rem] bg-surface px-5 pt-6">
+        {error !== null ? (
+          <p role="alert" className="mb-3 text-xs text-status-kasbon">
+            {error}
+          </p>
+        ) : null}
+
+        <div className="flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              navigate('/admin/pending')
+            }}
+            className="rounded-2xl bg-white px-4 py-3 text-left shadow-sm focus-visible:ring-2 focus-visible:ring-action"
+          >
+            <h2 className="text-sm font-bold text-neutral-900">Persetujuan Petugas</h2>
+            <p className="text-xs text-neutral-600">Kelola user yang menunggu verifikasi</p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              navigate('/admin/settings')
+            }}
+            className="rounded-2xl bg-white px-4 py-3 text-left shadow-sm focus-visible:ring-2 focus-visible:ring-action"
+          >
+            <h2 className="text-sm font-bold text-neutral-900">Pengaturan Global</h2>
+            <p className="text-xs text-neutral-600">Atur batas kasbon dan konfigurasi lain</p>
+          </button>
+        </div>
+
         {loading ? (
-          <p className="mt-2 text-xs text-neutral-500" aria-busy="true">
+          <p className="mt-6 text-center text-xs text-neutral-500" aria-busy="true">
             Memuat…
           </p>
         ) : users.length === 0 ? (
-          <p className="mt-2 text-xs text-neutral-500">Tidak ada user pending.</p>
+          <p className="mt-6 text-xs text-neutral-500">Tidak ada user pending.</p>
         ) : (
-          <ul className="mt-2 flex flex-col gap-2">
-            {users.map((user) => (
-              <li key={user.id} className="rounded-2xl bg-white px-4 py-3 shadow-sm">
-                <p className="text-sm font-bold text-neutral-900">{user.fullName}</p>
-                <p className="text-xs text-neutral-600">{user.email}</p>
-                <div className="mt-2 flex gap-2">
-                  <Button
-                    label="Setujui"
-                    variant="pill-green"
-                    loading={busyId === user.id}
-                    onClick={() => {
-                      void onApprove(user.id)
-                    }}
-                  />
-                  <Button
-                    label="Tolak"
-                    variant="pill-green"
-                    loading={busyId === user.id}
-                    onClick={() => {
-                      void onReject(user.id)
-                    }}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-6">
+            <h2 className="text-sm font-bold text-neutral-900">User menunggu persetujuan</h2>
+            <ul className="mt-2 flex flex-col gap-2">
+              {users.map((user) => (
+                <li key={user.id} className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+                  <p className="text-sm font-bold text-neutral-900">{user.fullName}</p>
+                  <p className="text-xs text-neutral-600">{user.email}</p>
+                  <div className="mt-2 flex gap-2">
+                    <Button
+                      label="Setujui"
+                      variant="pill-green"
+                      loading={busyId === user.id}
+                      onClick={() => {
+                        void onApprove(user.id)
+                      }}
+                    />
+                    <Button
+                      label="Tolak"
+                      variant="pill-green"
+                      loading={busyId === user.id}
+                      onClick={() => {
+                        void onReject(user.id)
+                      }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {settings === null ? (
+          <p className="mt-6 text-xs text-neutral-500">Memuat pengaturan…</p>
+        ) : (
+          <KasbonLimitCard initial={settings.kasbonLimit} onError={setError} />
         )}
       </section>
-
-      {settings === null ? (
-        <p className="mt-6 text-xs text-neutral-500">Memuat pengaturan…</p>
-      ) : (
-        <KasbonLimitCard initial={settings.kasbonLimit} onError={setError} />
-      )}
-    </main>
+    </div>
   )
 }
 

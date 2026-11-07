@@ -1,4 +1,5 @@
 import { request } from '@/shared/api/http'
+import { cachedGet, invalidateCache } from '@/shared/api/requestCache'
 import { db, type PickupRow } from '@/shared/db/db'
 import { enqueueOutbox } from '@/features/sync/service'
 import { newId } from '@/shared/lib/id'
@@ -16,7 +17,10 @@ export async function cacheTodayRows(rows: readonly TodayPickup[]): Promise<void
   await db.pickups.bulkPut(rows)
 }
 
-/** POST /pickups/start-day — butuh koneksi karena aksi ini membuat record di server. */
+/**
+ * POST /pickups/start-day — butuh koneksi karena aksi ini membuat record di server.
+ * Setelah sukses, cache GET /pickups/* dibuang agar Daftar Rumah memuat data baru.
+ */
 export async function startDayOnline(): Promise<StartDayResponse> {
   const response = await request(
     { method: 'POST', url: '/pickups/start-day' },
@@ -30,17 +34,18 @@ export async function startDayOnline(): Promise<StartDayResponse> {
     startedAt: response.session.startedAt,
     finishedAt: response.session.finishedAt,
   })
+  invalidateCache('/pickups/')
   return response
 }
 
-/** GET /pickups/today — kontrak resmi saat koneksi tersedia. */
+/** GET /pickups/today — kontrak resmi, lewat cache TTL + dedupe (anti-429). */
 export async function fetchToday(): Promise<readonly TodayPickup[]> {
-  return request({ method: 'GET', url: '/pickups/today' }, todayPickupSchema.array())
+  return cachedGet({ method: 'GET', url: '/pickups/today' }, todayPickupSchema.array())
 }
 
-/** GET /pickups/stats?range=... — sumber utama kartu Beranda (server, kalender WIB). */
+/** GET /pickups/stats?range=... — sumber utama kartu Beranda, lewat cache. */
 export async function fetchStats(range: StatsRange): Promise<StatsResponse> {
-  return request({ method: 'GET', url: '/pickups/stats', params: { range } }, statsResponseSchema)
+  return cachedGet({ method: 'GET', url: '/pickups/stats', params: { range } }, statsResponseSchema)
 }
 
 /**

@@ -30,7 +30,7 @@ export function Button({
       className={`${
         isPill
           ? 'rounded-full bg-card-green px-6 py-2.5 text-center text-xs font-bold tracking-widest text-white uppercase shadow-sm transition hover:brightness-110 focus-visible:ring-2 focus-visible:ring-brand/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-60'
-          : 'w-full rounded-lg bg-action py-3.5 text-center text-lg font-semibold text-white shadow-sm transition hover:brightness-105 focus-visible:ring-2 focus-visible:ring-action/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-60'
+          : 'w-full rounded-lg bg-action py-3.5 text-center text-lg font-semibold text-neutral-900 shadow-sm transition hover:brightness-105 focus-visible:ring-2 focus-visible:ring-action/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-60'
       } ${className}`}
     >
       {loading ? 'Memproses…' : label}

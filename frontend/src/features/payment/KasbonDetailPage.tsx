@@ -123,7 +123,7 @@ export function KasbonDetailPage({ houseId, ownerName }: PaymentSectionProps): R
         </div>
       </CurvedHeader>
 
-      <section className="relative -mt-6 rounded-tl-[2.5rem] bg-surface px-5 pt-6">
+      <section className="relative -mt-8 rounded-tl-[3rem] bg-surface px-5 pt-6">
         {offline ? (
           <p
             role="status"
@@ -185,6 +185,12 @@ export function KasbonDetailPage({ houseId, ownerName }: PaymentSectionProps): R
             }}
           />
         ) : null}
+
+        <PaymentHistory
+          houseId={houseId}
+          // Key ber-konten: setelah bayar (onPaid → refresh → rows berubah) history remount.
+          key={`history-${rows.map((row) => row.id).join(',')}${rows.length.toString()}`}
+        />
       </section>
     </div>
   )
@@ -204,6 +210,61 @@ function formatWibDayLabel(date: Date): string {
     timeZone: 'Asia/Jakarta',
   })
   return label
+}
+
+/** F13 — Riwayat pembayaran rumah ini dari Dexie (offline-first, cache pembayaran). */
+function PaymentHistory({ houseId }: { houseId: string }): React.ReactElement | null {
+  const [items, setItems] = useState<
+    readonly { id: string; amount: number; paidAt: string; note: string | null }[]
+  >([])
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    void (async () => {
+      const payments = await db.payments.toArray()
+      const records = await db.pickups.filter((row) => row.houseId === houseId).toArray()
+      const recordIds = new Set(records.map((record) => record.id))
+      const relevant = payments
+        .filter((payment) => recordIds.has(payment.recordId) && payment.voidedAt === null)
+        .map((payment) => ({
+          id: payment.id,
+          amount: payment.amount,
+          paidAt: payment.paidAt,
+          note: payment.note,
+        }))
+        .sort((a, b) => b.paidAt.localeCompare(a.paidAt))
+      setItems(relevant)
+      setLoaded(true)
+    })()
+  }, [houseId])
+
+  if (!loaded) return null
+
+  return (
+    <div className="mt-6">
+      <h2 className="px-1 text-sm font-bold text-neutral-900">Riwayat pembayaran rumah ini</h2>
+      {items.length === 0 ? (
+        <p className="mt-2 rounded-2xl bg-white px-4 py-3 text-center text-xs text-neutral-500 shadow-sm">
+          Belum ada pembayaran tercatat untuk rumah ini.
+        </p>
+      ) : (
+        <ul className="mt-2 flex flex-col gap-2" aria-label="Riwayat pembayaran rumah">
+          {items.map((payment) => (
+            <li
+              key={payment.id}
+              className="flex items-center justify-between gap-3 rounded-2xl bg-white px-4 py-2.5 text-sm text-neutral-900 shadow-sm"
+            >
+              <span className="truncate text-xs text-neutral-600">
+                {formatWibDayLabel(new Date(payment.paidAt))}
+                {payment.note !== null ? ` · ${payment.note}` : ''}
+              </span>
+              <span className="shrink-0 font-bold">{formatRupiah(payment.amount)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
 }
 
 interface PaymentFormProps {

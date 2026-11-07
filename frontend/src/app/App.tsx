@@ -13,7 +13,10 @@ import { KasbonPage } from '@/features/payment/KasbonPage'
 import { KasbonDetailPage } from '@/features/payment/KasbonDetailPage'
 import { UangPage } from '@/features/payment/UangPage'
 import { AdminPage } from '@/features/admin/AdminPage'
+import { AdminPendingPage } from '@/features/admin/AdminPendingPage'
+import { AdminSettingsPage } from '@/features/admin/AdminSettingsPage'
 import { NavigateStub } from './NavigateStub'
+import { ToastProvider } from '@/shared/components/ui/Toast'
 
 /** Sambungkan store auth ke http sekali — hindari impor melingkar api→store. */
 function connectHttpToStore(): void {
@@ -36,6 +39,7 @@ const PUBLIC_ROUTES: readonly RouteConfig[] = [
 const SECURE_ROUTES: readonly RouteConfig[] = [
   { path: '/', component: () => <BerandaPage /> },
   { path: '/rumah', component: () => <HouseListPage /> },
+  { path: '/profile', component: () => <BerandaPage /> },
   { path: '/kasbon', component: () => <KasbonPage /> },
   {
     path: '/kasbon/:houseId',
@@ -44,6 +48,8 @@ const SECURE_ROUTES: readonly RouteConfig[] = [
   { path: '/uang', component: () => <UangPage /> },
   // Halaman admin: cek role di UI hanya untuk UX; otorisasi di server (RolesGuard).
   { path: '/admin', component: () => <AdminPage />, adminOnly: true },
+  { path: '/admin/pending', component: () => <AdminPendingPage />, adminOnly: true },
+  { path: '/admin/settings', component: () => <AdminSettingsPage />, adminOnly: true },
 ]
 
 export function App(): React.ReactElement {
@@ -85,8 +91,10 @@ export function App(): React.ReactElement {
   }
 
   return (
-    <AppLayout>
-      {matched.config.component({ path: matched.config.path, param: matched.param })}
-    </AppLayout>
+    <ToastProvider>
+      <AppLayout>
+        {matched.config.component({ path: matched.config.path, param: matched.param })}
+      </AppLayout>
+    </ToastProvider>
   )
 }
