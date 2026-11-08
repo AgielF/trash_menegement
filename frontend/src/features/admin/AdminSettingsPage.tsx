@@ -6,13 +6,15 @@ import { CurvedHeader } from '@/shared/components/ui/CurvedHeader'
 import { useToast } from '@/shared/components/ui/toast-constants'
 import { fetchAdminSettings, setKasbonLimit } from '@/features/payment/api'
 import { formatRupiah } from '@/features/payment/clamp'
-import { navigate } from '@/shared/lib/router'
+import { useNavigate } from 'react-router-dom'
+import { APP_PATHS } from '@/config/routes'
 
 /**
  * F16 — Halaman Pengaturan (admin-only): batas kasbon global
  * (PATCH /admin/settings/kasbon-limit { value }). Otorisasi di server.
  */
 export function AdminSettingsPage(): React.ReactElement {
+  const navigate = useNavigate()
   const [current, setCurrent] = useState<number | null>(null)
   const [value, setValue] = useState('')
   const [loading, setLoading] = useState(true)
@@ -68,7 +70,7 @@ export function AdminSettingsPage(): React.ReactElement {
           <button
             type="button"
             onClick={() => {
-              navigate('/admin/pending')
+              void navigate(APP_PATHS.adminPending)
             }}
             className="rounded-2xl bg-white px-4 py-4 text-left shadow-sm focus-visible:ring-2 focus-visible:ring-action"
           >
@@ -80,7 +82,7 @@ export function AdminSettingsPage(): React.ReactElement {
           <button
             type="button"
             onClick={() => {
-              navigate('/admin/houses')
+              void navigate(APP_PATHS.adminHouses)
             }}
             className="rounded-2xl bg-white px-4 py-4 text-left shadow-sm focus-visible:ring-2 focus-visible:ring-action"
           >
@@ -92,7 +94,7 @@ export function AdminSettingsPage(): React.ReactElement {
           <button
             type="button"
             onClick={() => {
-              navigate('/admin/import')
+              void navigate(APP_PATHS.adminImport)
             }}
             className="rounded-2xl bg-white px-4 py-4 text-left shadow-sm focus-visible:ring-2 focus-visible:ring-action"
           >

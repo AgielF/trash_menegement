@@ -7,7 +7,8 @@ import { useAuthStore } from './store'
 import { postLogin } from './api'
 import { loginSchema } from './schemas'
 import { AuthShell } from './AuthShell'
-import { navigate } from '@/shared/lib/router'
+import { Link, useNavigate } from 'react-router-dom'
+import { APP_PATHS } from '@/config/routes'
 
 /**
  * Layar Login — mengikuti UI_reference/LoginScreen.png:
@@ -15,6 +16,7 @@ import { navigate } from '@/shared/lib/router'
  * tautan "Forget password ?", tombol teal, tautan "Sign Up".
  */
 export function LoginPage(): React.ReactElement {
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -39,7 +41,7 @@ export function LoginPage(): React.ReactElement {
     try {
       const response = await postLogin(parsed.data)
       setSession(response.access_token, response.user)
-      navigate('/')
+      void navigate(APP_PATHS.home)
     } catch (error) {
       setFormError(
         error instanceof ApiError ? error.message : 'Terjadi galat tak terduga. Coba lagi.',
@@ -114,9 +116,9 @@ export function LoginPage(): React.ReactElement {
       </form>
       <p className="text-center text-sm font-medium text-neutral-900">
         Don't have an account ?{' '}
-        <a href="#/register" className="text-purple-link">
+        <Link to={APP_PATHS.register} className="text-purple-link">
           Sign Up
-        </a>
+        </Link>
       </p>
     </AuthShell>
   )

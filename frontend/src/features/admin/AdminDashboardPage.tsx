@@ -7,8 +7,9 @@ import { Logo } from '@/shared/components/ui/Logo'
 import { PlaceholderAvatar } from '@/shared/components/ui/Placeholder'
 import { useAuthStore } from '@/features/auth/store'
 import { formatWibDateLabel, getTodayWib } from '@/shared/lib/date'
-import { navigate } from '@/shared/lib/router'
 import { LogOut } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { APP_PATHS } from '@/config/routes'
 
 const adminStatsSchema = z.object({
   totalHouses: z.number().int().nonnegative(),
@@ -47,6 +48,7 @@ const STAT_CARDS: readonly {
 export function AdminDashboardPage(): React.ReactElement {
   const user = useAuthStore((state) => state.user)
   const logout = useAuthStore((state) => state.logout)
+  const navigate = useNavigate()
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -70,7 +72,7 @@ export function AdminDashboardPage(): React.ReactElement {
 
   function onLogout(): void {
     logout({ force: true })
-    navigate('/login')
+    void navigate(APP_PATHS.login)
   }
 
   return (
@@ -111,13 +113,14 @@ export function AdminDashboardPage(): React.ReactElement {
 
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           {STAT_CARDS.map((card) => {
-            const target = card.key === 'totalHouses' ? '/admin/houses' : '/admin/settings'
+            const target =
+              card.key === 'totalHouses' ? APP_PATHS.adminHouses : APP_PATHS.adminSettings
             return (
               <button
                 key={card.key}
                 type="button"
                 onClick={() => {
-                  navigate(target)
+                  void navigate(target)
                 }}
                 className="cursor-pointer rounded-2xl bg-card-green p-4 text-left text-white shadow-sm transition duration-200 hover:scale-[1.02] hover:bg-green-700 focus-visible:ring-2 focus-visible:ring-action focus-visible:ring-offset-2"
               >

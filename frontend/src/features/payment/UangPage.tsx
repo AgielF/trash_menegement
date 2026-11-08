@@ -1,12 +1,7 @@
-import { useEffect, useState } from 'react'
-import { db } from '@/shared/db/db'
-import { ApiError } from '@/shared/api/http'
+import { useUang } from './useUang'
 import { CurvedHeader } from '@/shared/components/ui/CurvedHeader'
-import { fetchStats } from '@/features/pickups/service'
-import type { StatsRange, StatsResponse } from '@/features/pickups/schemas'
-import { toWibDateString, getTodayWib } from '@/shared/lib/date'
+import type { StatsRange } from '@/features/pickups/schemas'
 import { formatRupiah } from './clamp'
-import { activePaymentsOfDay } from './aggregate'
 
 /**
  * F14 — Rekap uang masuk. Sumber: GET /pickups/stats (server, kalender WIB)
@@ -23,45 +18,7 @@ const RANGE_LABELS: Record<StatsRange, string> = {
 const RANGES: readonly StatsRange[] = ['today', 'week', 'month']
 
 export function UangPage(): React.ReactElement {
-  const [range, setRange] = useState<StatsRange>('today')
-  const [stats, setStats] = useState<StatsResponse | null>(null)
-  const [offline, setOffline] = useState(false)
-  const [localMoney, setLocalMoney] = useState<number | null>(null)
-  const [history, setHistory] = useState<
-    readonly { id: string; amount: number; paidAt: string; note: string | null }[]
-  >([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const response = await fetchStats(range)
-        setStats(response)
-        setOffline(false)
-      } catch (error) {
-        setStats(null)
-        setOffline(!(error instanceof ApiError && error.status !== null))
-        if (range === 'today') {
-          const today = toWibDateString(getTodayWib())
-          setLocalMoney(
-            activePaymentsOfDay(await db.payments.toArray(), today).reduce(
-              (total, payment) => total + payment.amount,
-              0,
-            ),
-          )
-        }
-      }
-      // Riwayat rincian hanya relevan untuk hari ini.
-      if (range === 'today') {
-        const today = toWibDateString(getTodayWib())
-        const rows = activePaymentsOfDay(await db.payments.toArray(), today)
-        setHistory(rows.map(({ id, amount, paidAt, note }) => ({ id, amount, paidAt, note })))
-      } else {
-        setHistory([])
-      }
-      setLoading(false)
-    })()
-  }, [range])
+  const { range, changeRange, stats, offline, localMoney, history, loading } = useUang()
 
   return (
     <div className="min-h-[calc(100dvh-3.5rem)] bg-surface pb-6">
@@ -79,10 +36,7 @@ export function UangPage(): React.ReactElement {
               role="tab"
               aria-selected={range === item}
               onClick={() => {
-                setRange(item)
-                setStats(null)
-                setLocalMoney(null)
-                setLoading(true)
+                changeRange(item)
               }}
               className={`rounded-full px-4 py-1.5 text-xs font-semibold focus-visible:ring-2 focus-visible:ring-action ${
                 range === item ? 'bg-brand text-white' : 'bg-white text-neutral-700 shadow-sm'

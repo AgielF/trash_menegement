@@ -6,6 +6,8 @@ import { ApiError } from '@/shared/api/http'
 import { Button } from '@/shared/components/ui/Button'
 import { TextField } from '@/shared/components/ui/TextField'
 import { AuthShell } from './AuthShell'
+import { Link } from 'react-router-dom'
+import { APP_PATHS } from '@/config/routes'
 
 /** Layar Registrasi — mengikuti UI reference/Registration.png. */
 export function RegisterPage(): React.ReactElement {
@@ -125,9 +127,9 @@ export function RegisterPage(): React.ReactElement {
       </form>
       <p className="mt-6 text-center text-sm font-medium text-neutral-900">
         Already have an account ?{' '}
-        <a href="#/login" className="text-purple-link">
+        <Link to={APP_PATHS.login} className="text-purple-link">
           Sign In
-        </a>
+        </Link>
       </p>
     </AuthShell>
   )

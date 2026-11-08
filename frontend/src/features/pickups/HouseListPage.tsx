@@ -1,23 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useState } from 'react'
 import type { PickupRow } from '@/shared/db/db'
-import { ApiError } from '@/shared/api/http'
 import { useAuthStore } from '@/features/auth/store'
-import {
-  cacheTodayRows,
-  fetchToday,
-  listTodayFromDb,
-  recordPickup,
-  skipPickup,
-  listPendingPickupIds,
-  todayKey,
-} from './service'
+import { todayKey } from './service'
+import { useHouseList } from './useHouseList'
 import { HouseCard } from './HouseCard'
-import { TextField } from '@/shared/components/ui/TextField'
-import { Button } from '@/shared/components/ui/Button'
-import { useToast } from '@/shared/components/ui/toast-constants'
-import { formatWibDateLabel } from '@/shared/lib/date'
-import { navigate } from '@/shared/lib/router'
 import { BackButton } from '@/shared/components/ui/BackButton'
+import { SearchField } from '@/shared/components/ui/SearchField'
+import { useNavigate } from 'react-router-dom'
+import { APP_PATHS } from '@/config/routes'
+import { PickupModal } from './components/PickupModal'
+import { SkipModal } from './components/SkipModal'
 
 /**
  * F6/F7/F8 — Daftar Rumah petugas:
@@ -29,50 +21,23 @@ import { BackButton } from '@/shared/components/ui/BackButton'
  *   POST /pickups/:id/skip. Keduanya offline-first (Dexie + outbox).
  */
 export function HouseListPage(): React.ReactElement {
+  const navigate = useNavigate()
   const user = useAuthStore((state) => state.user)
   const canAddHouse = user?.roles.includes('admin') === true
-  const [rows, setRows] = useState<PickupRow[]>([])
-  const [pendingRecordIds, setPendingRecordIds] = useState<ReadonlySet<string>>(() => new Set())
-  const [query, setQuery] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [offline, setOffline] = useState(false)
+  const {
+    filtered,
+    pendingRecordIds,
+    query,
+    setQuery,
+    loading,
+    offline,
+    refresh,
+    recordPickup,
+    skipPickup,
+  } = useHouseList()
   const [actionRecord, setActionRecord] = useState<PickupRow | null>(null)
   const [skipRecord, setSkipRecord] = useState<PickupRow | null>(null)
   const [dialogError, setDialogError] = useState<string | null>(null)
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const remote = await fetchToday()
-        await cacheTodayRows(remote)
-        setOffline(false)
-      } catch (error) {
-        // Gagal-request dianggap offline (playbook); data dari Dexie.
-        setOffline(!(error instanceof ApiError && error.status !== null))
-      }
-      const [todayRows, pendingIds] = await Promise.all([listTodayFromDb(), listPendingPickupIds()])
-      setRows(todayRows)
-      setPendingRecordIds(pendingIds)
-      setLoading(false)
-    })()
-  }, [])
-
-  async function refresh(): Promise<void> {
-    const [todayRows, pendingIds] = await Promise.all([listTodayFromDb(), listPendingPickupIds()])
-    setRows(todayRows)
-    setPendingRecordIds(pendingIds)
-  }
-
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    if (needle === '') return rows
-    return rows.filter(
-      (row) =>
-        row.house.ownerName.toLowerCase().includes(needle) ||
-        `rt ${row.house.rt}`.toLowerCase().includes(needle) ||
-        `gang ${row.house.gang}`.toLowerCase().includes(needle),
-    )
-  }, [rows, query])
 
   return (
     <div className="relative min-h-[calc(100dvh-3.5rem)] bg-surface">
@@ -81,19 +46,13 @@ export function HouseListPage(): React.ReactElement {
           <BackButton />
           <span className="text-[9px] font-bold tracking-wide text-white">BERSHIKU</span>
         </div>
-        <div className="mt-2 flex items-center gap-2 rounded-full bg-white px-4 py-2.5 shadow-sm">
-          <span aria-hidden="true">🔍</span>
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value)
-            }}
-            placeholder="CARI..."
-            aria-label="Cari rumah"
-            className="w-full bg-transparent text-sm text-neutral-800 outline-none placeholder:font-medium placeholder:text-neutral-400"
-          />
-        </div>
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          placeholder="CARI..."
+          ariaLabel="Cari rumah"
+          className="mt-2"
+        />
       </header>
 
       <main className="flex flex-col gap-3 px-4 py-4">
@@ -102,7 +61,7 @@ export function HouseListPage(): React.ReactElement {
             <button
               type="button"
               onClick={() => {
-                navigate('/houses/create')
+                void navigate(APP_PATHS.createHouse)
               }}
               className="rounded-full bg-card-green px-5 py-2.5 text-xs font-bold tracking-wide text-white shadow-sm focus-visible:ring-2 focus-visible:ring-action"
             >
@@ -172,9 +131,10 @@ export function HouseListPage(): React.ReactElement {
       </main>
 
       {actionRecord !== null ? (
-        <PickupDialog
+        <PickupModal
           key={`pickup-${actionRecord.id}`}
           record={actionRecord}
+          recordPickup={recordPickup}
           onClose={() => {
             setActionRecord(null)
           }}
@@ -186,9 +146,10 @@ export function HouseListPage(): React.ReactElement {
         />
       ) : null}
       {skipRecord !== null ? (
-        <SkipDialog
+        <SkipModal
           key={`skip-${skipRecord.id}`}
           record={skipRecord}
+          skipPickup={skipPickup}
           onClose={() => {
             setSkipRecord(null)
           }}
@@ -200,193 +161,5 @@ export function HouseListPage(): React.ReactElement {
         />
       ) : null}
     </div>
-  )
-}
-
-interface DialogBaseProps {
-  record: PickupRow
-  onClose: () => void
-  onDone: () => void
-  onErrorSetter: (message: string | null) => void
-  error: string | null
-}
-
-/** Modal bawah berbagi bingkai (latar klik-tutup + kartu putih membulat). */
-function QDialog({
-  title,
-  subtitle,
-  onClose,
-  error,
-  children,
-}: {
-  title: string
-  subtitle: string
-  onClose: () => void
-  error: string | null
-  children: React.ReactNode
-}): React.ReactElement {
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-      className="fixed inset-0 z-20 flex items-end bg-black/40 p-4"
-    >
-      {/* Latar klik-tutup: button penuh agar patuh a11y (bisa difokus & Enter). */}
-      <button
-        type="button"
-        aria-label="Tutup dialog"
-        className="absolute inset-0 cursor-default"
-        onClick={onClose}
-      />
-      <div className="relative w-full rounded-3xl bg-white p-5 shadow-lg">
-        <h2 className="text-base font-bold text-neutral-900">{title}</h2>
-        <p className="text-xs text-neutral-600">{subtitle}</p>
-        {error !== null ? (
-          <p role="alert" className="mt-2 text-xs text-status-kasbon">
-            {error}
-          </p>
-        ) : null}
-        <div className="mt-4">{children}</div>
-      </div>
-    </div>
-  )
-}
-
-/** F7 — Catat pengambilan: jumlah karung (int ≥ 0) → PATCH /pickups/:id/pickup. */
-function PickupDialog({
-  record,
-  onClose,
-  onDone,
-  onErrorSetter,
-  error,
-}: DialogBaseProps): React.ReactElement {
-  const [bagsCount, setBagsCount] = useState(
-    record.bagsCount !== null ? String(record.bagsCount) : '1',
-  )
-  const [busy, setBusy] = useState(false)
-  const { showToast } = useToast()
-
-  const isPicked = record.pickupStatus === 'sudah_diambil'
-
-  async function confirmPickup(): Promise<void> {
-    const parsed = Number.parseInt(bagsCount, 10)
-    if (Number.isNaN(parsed) || parsed < 0) {
-      onErrorSetter('Jumlah karung harus berupa angka 0 atau lebih.')
-      return
-    }
-    setBusy(true)
-    try {
-      // Offline-first: tulis Dexie → antre outbox; server penentu saat sinkron.
-      await recordPickup(record, parsed)
-      onDone()
-      onClose()
-      showToast(`Pengambilan ${parsed.toString()} karung tercatat.`, 'success')
-    } catch (caught: unknown) {
-      onErrorSetter(caught instanceof Error ? caught.message : 'Gagal menyimpan.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <QDialog
-      title={record.house.ownerName}
-      subtitle={`RT ${record.house.rt} · Gang ${record.house.gang} · Jatuh tempo ${formatWibDateLabel(new Date(record.dueDate))}`}
-      onClose={onClose}
-      error={error}
-    >
-      {isPicked ? (
-        <div className="space-y-3">
-          <p className="text-sm text-neutral-700">
-            Sudah diambil ({record.bagsCount ?? '—'} karung). Pembayaran dicatat di layar
-            Kasbon/Uang.
-          </p>
-          <Button label="Tutup" variant="pill-green" onClick={onClose} />
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <TextField
-            name="bagsCount"
-            label="Jumlah karung"
-            type="text"
-            showLabel
-            value={bagsCount}
-            onChange={(value) => {
-              setBagsCount(value)
-            }}
-          />
-          <Button
-            label="Simpan Pengambilan"
-            variant="pill-green"
-            loading={busy}
-            onClick={() => {
-              void confirmPickup()
-            }}
-          />
-        </div>
-      )}
-    </QDialog>
-  )
-}
-
-/** F8 — Skip: alasan WAJIB (aturan bisnis) → POST /pickups/:id/skip (upsert per hari). */
-function SkipDialog({
-  record,
-  onClose,
-  onDone,
-  onErrorSetter,
-  error,
-}: DialogBaseProps): React.ReactElement {
-  const [reason, setReason] = useState('')
-  const [busy, setBusy] = useState(false)
-  const { showToast } = useToast()
-
-  async function confirmSkip(): Promise<void> {
-    if (reason.trim() === '') {
-      onErrorSetter('Alasan skip wajib diisi (aturan bisnis).')
-      return
-    }
-    setBusy(true)
-    try {
-      // Offline-first: tulis Dexie → antre outbox (id client = clientRef, aman diulang).
-      await skipPickup(record, reason.trim())
-      onDone()
-      onClose()
-      showToast('Rumah di-skip hari ini.', 'info')
-    } catch (caught: unknown) {
-      onErrorSetter(caught instanceof Error ? caught.message : 'Gagal menyimpan.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <QDialog
-      title={record.house.ownerName}
-      subtitle={`RT ${record.house.rt} · Gang ${record.house.gang} · Skip hari ini wajib beralasan`}
-      onClose={onClose}
-      error={error}
-    >
-      <div className="space-y-4">
-        <TextField
-          name="skipReason"
-          label="Alasan skip"
-          value={reason}
-          onChange={(value) => {
-            setReason(value)
-          }}
-          showLabel
-        />
-        <Button
-          label="Simpan Skip"
-          variant="pill-green"
-          loading={busy}
-          onClick={() => {
-            void confirmSkip()
-          }}
-        />
-      </div>
-    </QDialog>
   )
 }

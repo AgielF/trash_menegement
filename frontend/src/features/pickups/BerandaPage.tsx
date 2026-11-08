@@ -1,129 +1,39 @@
-import { useEffect, useState } from 'react'
-import { ApiError } from '@/shared/api/http'
+import { useBeranda } from './useBeranda'
 import { useAuthStore } from '@/features/auth/store'
 import { Logo } from '@/shared/components/ui/Logo'
 import { Button } from '@/shared/components/ui/Button'
 import { PlaceholderAvatar } from '@/shared/components/ui/Placeholder'
 import { CurvedHeader } from '@/shared/components/ui/CurvedHeader'
-import { useToast } from '@/shared/components/ui/toast-constants'
-import {
-  runPush,
-  runPull,
-  pushLocalSnapshot,
-  refreshPendingCount,
-  useSyncStore,
-} from '@/features/sync/service'
 import { getTodayWib, formatWibDateLabel } from '@/shared/lib/date'
-import { navigate } from '@/shared/lib/router'
-import {
-  cacheTodayRows,
-  fetchStats,
-  fetchToday,
-  gatherBeranda,
-  startDayOnline,
-  type BerandaSnapshot,
-} from './service'
-import type { StatsResponse } from './schemas'
-
-/** Tarik terbaru dari kontrak resmi bila online; selain itu biarkan data Dexie. */
-async function refreshRemoteToday(): Promise<boolean> {
-  try {
-    const remote = await fetchToday()
-    await cacheTodayRows(remote)
-    return false
-  } catch (error) {
-    // Gagal-request dianggap offline (playbook).
-    return !(error instanceof ApiError && error.status !== null)
-  }
-}
+import { useNavigate } from 'react-router-dom'
+import { APP_PATHS } from '@/config/routes'
+import { DashboardStats } from './components/DashboardStats'
 
 export function BerandaPage(): React.ReactElement {
+  const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
-  const { showToast } = useToast()
-  const [stats, setStats] = useState<StatsResponse | null>(null)
-  const [local, setLocal] = useState<BerandaSnapshot | null>(null)
-  const [offline, setOffline] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [starting, setStarting] = useState(false)
-  const [startError, setStartError] = useState<string | null>(null)
-  const [syncing, setSyncing] = useState(false)
-  const [pendingCount, setPendingCount] = useState<number | null>(null)
-
-  useEffect(() => {
-    const cancelled = { value: false }
-    void (async () => {
-      const isOffline = await refreshRemoteToday()
-      if (!isOffline) {
-        try {
-          const response = await fetchStats('today')
-          if (!cancelled.value) setStats(response)
-        } catch (error) {
-          if (!(error instanceof ApiError && error.status !== null)) {
-            if (!cancelled.value) setStats(null)
-          }
-        }
-      }
-      const snapshot = await gatherBeranda()
-      if (cancelled.value) return
-      setOffline(isOffline)
-      setLocal(snapshot)
-      setLoading(false)
-    })()
-    void (async () => {
-      const count = await refreshPendingCount()
-      if (!cancelled.value) setPendingCount(count)
-    })()
-    return () => {
-      cancelled.value = true
-    }
-  }, [])
+  const {
+    stats,
+    local,
+    offline,
+    loading,
+    starting,
+    startError,
+    syncing,
+    pendingCount,
+    startDay,
+    sync,
+  } = useBeranda()
 
   async function onStartDay(): Promise<void> {
-    setStartError(null)
-    setStarting(true)
-    try {
-      await startDayOnline()
-      navigate('/rumah')
-    } catch (error) {
-      if (error instanceof ApiError && error.status === null) {
-        setStartError('Tidak dapat terhubung ke server. Pastikan Anda online.')
-      } else {
-        setStartError(error instanceof ApiError ? error.message : 'Gagal memulai hari.')
-      }
-    } finally {
-      setStarting(false)
+    if (await startDay()) {
+      void navigate(APP_PATHS.houses)
     }
   }
 
   async function onSync(): Promise<void> {
-    setSyncing(true)
-    try {
-      await runPush()
-      const pushed = await pushLocalSnapshot()
-      await runPull()
-      const count = await refreshPendingCount()
-      setPendingCount(count)
-      const conflictCount =
-        pushed.houseConflicts.length +
-        pushed.pickupConflicts.length +
-        pushed.paymentConflicts.length
-      const syncError = useSyncStore.getState().lastError
-      if (syncError !== null) {
-        showToast(syncError, 'warning')
-      } else if (conflictCount > 0) {
-        showToast(`Sinkronisasi selesai dengan ${conflictCount.toString()} konflik.`, 'warning')
-      } else {
-        showToast(
-          count > 0 ? `${count.toString()} data masih menunggu sinkron.` : 'Sinkronisasi selesai.',
-          'success',
-        )
-      }
-    } catch {
-      showToast('Sinkronisasi gagal.', 'error')
-    } finally {
-      setSyncing(false)
-    }
+    await sync()
   }
 
   function onLogout(): void {
@@ -189,54 +99,14 @@ export function BerandaPage(): React.ReactElement {
           <p className="text-sm text-neutral-600">Selamat Bertugas Hari Ini</p>
         </div>
 
-        <div className="mt-3 flex items-center gap-4 rounded-2xl bg-card-green px-5 py-4 text-white shadow-sm">
-          <div
-            role="img"
-            aria-label={`Progres hari ini ${String(progressPercent)}%`}
-            className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-white/90 text-sm font-bold text-brand"
-          >
-            {progressPercent}%
-          </div>
-          <div>
-            <p className="text-sm font-bold">Hari ini</p>
-            <p className="text-xs">
-              {dataUnavailable(loading)
-                ? 'Memuat…'
-                : `${String(pickedToday)} dari ${String(totalHouses)} rumah`}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <div className="flex items-center gap-3 rounded-2xl bg-card-green px-4 py-3 text-white shadow-sm">
-            <span
-              aria-hidden="true"
-              className="grid h-9 w-9 place-items-center rounded-full bg-pink-200 text-pink-800"
-            >
-              🧺
-            </span>
-            <div>
-              <p className="text-sm font-bold">Karung</p>
-              <p className="text-xs">
-                {dataUnavailable(loading) ? 'Memuat…' : `${String(bagsToday)} Pcs`}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 rounded-2xl bg-card-green px-4 py-3 text-white shadow-sm">
-            <span
-              aria-hidden="true"
-              className="grid h-9 w-9 place-items-center rounded-full bg-red-200 text-red-800"
-            >
-              💵
-            </span>
-            <div>
-              <p className="text-sm font-bold">Uang</p>
-              <p className="text-xs">
-                {dataUnavailable(loading) ? 'Memuat…' : `Rp. ${moneyToday.toLocaleString('id-ID')}`}
-              </p>
-            </div>
-          </div>
-        </div>
+        <DashboardStats
+          progressPercent={progressPercent}
+          pickedToday={pickedToday}
+          totalHouses={totalHouses}
+          bagsToday={bagsToday}
+          moneyToday={moneyToday}
+          loading={loading}
+        />
 
         {offline ? (
           <p
@@ -288,8 +158,4 @@ export function BerandaPage(): React.ReactElement {
       </section>
     </div>
   )
-}
-
-function dataUnavailable(loading: boolean): boolean {
-  return loading
 }

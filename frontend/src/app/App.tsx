@@ -1,25 +1,11 @@
 import { useEffect } from 'react'
-import { matchRoute, type RouteConfig } from '@/shared/lib/router'
-import { useRouterPath } from '@/shared/lib/router'
+import { Navigate, useRoutes } from 'react-router-dom'
 import { useAuthStore } from '@/features/auth/store'
 import { configureHttp } from '@/shared/api/http'
 import { startSyncTriggers } from '@/features/sync/service'
 import { AppLayout } from './AppLayout'
-import { LoginPage } from '@/features/auth/LoginPage'
-import { RegisterPage } from '@/features/auth/RegisterPage'
-import { BerandaPage } from '@/features/pickups/BerandaPage'
-import { HouseListPage } from '@/features/pickups/HouseListPage'
-import { KasbonPage } from '@/features/payment/KasbonPage'
-import { KasbonDetailPage } from '@/features/payment/KasbonDetailPage'
-import { UangPage } from '@/features/payment/UangPage'
-import { AdminDashboardPage } from '@/features/admin/AdminDashboardPage'
-import { AdminPendingPage } from '@/features/admin/AdminPendingPage'
-import { AdminSettingsPage } from '@/features/admin/AdminSettingsPage'
-import { AdminHousesPage } from '@/features/admin/AdminHousesPage'
-import { ImportPage } from '@/features/admin/ImportPage'
-import { CreateHousePage } from '@/features/houses/CreateHousePage'
-import { NavigateStub } from './NavigateStub'
 import { ToastProvider } from '@/shared/components/ui/Toast'
+import { APP_PATHS, APP_ROUTES, type AppRoute } from '@/config/routes'
 
 /** Sambungkan store auth ke http sekali — hindari impor melingkar api→store. */
 function connectHttpToStore(): void {
@@ -34,46 +20,14 @@ function connectHttpToStore(): void {
 
 connectHttpToStore()
 
-const PUBLIC_ROUTES: readonly RouteConfig[] = [
-  { path: '/login', component: () => <LoginPage /> },
-  { path: '/register', component: () => <RegisterPage /> },
-]
-
-const SECURE_ROUTES: readonly RouteConfig[] = [
-  {
-    path: '/',
-    component: () =>
-      useAuthStore.getState().user?.roles.includes('admin') === true ? (
-        <AdminDashboardPage />
-      ) : (
-        <BerandaPage />
-      ),
-  },
-  { path: '/rumah', component: () => <HouseListPage /> },
-  { path: '/houses/create', component: () => <CreateHousePage /> },
-  {
-    path: '/houses/edit/:houseId',
-    component: ({ param }) => <CreateHousePage houseId={param ?? ''} />,
-    adminOnly: true,
-  },
-  { path: '/profile', component: () => <BerandaPage /> },
-  { path: '/kasbon', component: () => <KasbonPage /> },
-  {
-    path: '/kasbon/:houseId',
-    component: ({ param }) => <KasbonDetailPage houseId={param ?? ''} ownerName={null} />,
-  },
-  { path: '/uang', component: () => <UangPage /> },
-  // Halaman admin: cek role di UI hanya untuk UX; otorisasi di server (RolesGuard).
-  { path: '/admin', component: () => <AdminDashboardPage />, adminOnly: true },
-  { path: '/admin/pending', component: () => <AdminPendingPage />, adminOnly: true },
-  { path: '/admin/settings', component: () => <AdminSettingsPage />, adminOnly: true },
-  { path: '/admin/houses', component: () => <AdminHousesPage />, adminOnly: true },
-  { path: '/admin/import', component: () => <ImportPage />, adminOnly: true },
-]
-
 export function App(): React.ReactElement {
-  const path = useRouterPath()
   const { hydrate, isReady, user } = useAuthStore()
+  const routeElement = useRoutes(
+    APP_ROUTES.map((route) => ({
+      path: route.path,
+      element: <RouteView route={route} />,
+    })),
+  )
 
   useEffect(() => {
     hydrate()
@@ -89,31 +43,19 @@ export function App(): React.ReactElement {
     return <div className="min-h-dvh bg-surface" aria-busy="true" />
   }
 
-  const isPublic = path === '/login' || path === '/register'
-  if (user === null) {
-    if (isPublic) {
-      const matched = matchRoute(PUBLIC_ROUTES, path)
-      if (matched !== null) {
-        return matched.config.component({ path: matched.config.path, param: matched.param })
-      }
-    }
-    return <NavigateStub target="/login" />
+  return <ToastProvider>{routeElement}</ToastProvider>
+}
+
+function RouteView({ route }: { route: AppRoute }): React.ReactElement {
+  const user = useAuthStore((state) => state.user)
+
+  if (route.public === true) {
+    return user === null ? route.element : <Navigate to={APP_PATHS.home} replace />
+  }
+  if (user === null) return <Navigate to={APP_PATHS.login} replace />
+  if (route.requiredRole !== undefined && !user.roles.includes(route.requiredRole)) {
+    return <Navigate to={APP_PATHS.home} replace />
   }
 
-  if (isPublic) return <NavigateStub target="/" />
-
-  const matched = matchRoute(SECURE_ROUTES, path)
-  if (matched === null) return <NavigateStub target="/" />
-  // Guard admin: collector dialihkan ke Beranda (otorisasi sesungguhnya di server).
-  if (matched.config.adminOnly === true && !user.roles.includes('admin')) {
-    return <NavigateStub target="/" />
-  }
-
-  return (
-    <ToastProvider>
-      <AppLayout>
-        {matched.config.component({ path: matched.config.path, param: matched.param })}
-      </AppLayout>
-    </ToastProvider>
-  )
+  return <AppLayout>{route.element}</AppLayout>
 }

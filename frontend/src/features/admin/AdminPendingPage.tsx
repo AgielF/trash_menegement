@@ -96,8 +96,7 @@ export function AdminPendingPage(): React.ReactElement {
                   />
                   <Button
                     label="Tolak"
-                    variant="pill-green"
-                    className="bg-white! text-status-kasbon!"
+                    variant="destructive"
                     loading={busyId === user.id}
                     onClick={() => {
                       void onDecide(user.id, 'reject')

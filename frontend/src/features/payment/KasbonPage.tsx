@@ -1,9 +1,7 @@
-import { useEffect, useState } from 'react'
-import { db } from '@/shared/db/db'
-import { navigate } from '@/shared/lib/router'
+import { useKasbonList } from './useKasbonList'
+import { useNavigate } from 'react-router-dom'
+import { APP_PATHS } from '@/config/routes'
 import { formatRupiah } from './clamp'
-import { summarizeKasbon } from './aggregate'
-import type { KasbonHouse } from './aggregate'
 
 /**
  * F13 entry — daftar rumah dengan tagihan belum lunas (kasbon).
@@ -13,15 +11,8 @@ import type { KasbonHouse } from './aggregate'
  */
 
 export function KasbonPage(): React.ReactElement {
-  const [houses, setHouses] = useState<KasbonHouse[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    void (async () => {
-      setHouses(summarizeKasbon(await db.pickups.toArray(), await db.payments.toArray()))
-      setLoading(false)
-    })()
-  }, [])
+  const navigate = useNavigate()
+  const { houses, loading } = useKasbonList()
 
   return (
     <div className="min-h-[calc(100dvh-3.5rem)] bg-surface pb-6">
@@ -46,7 +37,7 @@ export function KasbonPage(): React.ReactElement {
               key={house.houseId}
               type="button"
               onClick={() => {
-                navigate(`/kasbon/${house.houseId}`)
+                void navigate(APP_PATHS.kasbonDetail(house.houseId))
               }}
               className="rounded-2xl bg-white px-4 py-3 text-left shadow-sm focus-visible:ring-2 focus-visible:ring-action"
             >

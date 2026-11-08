@@ -1,22 +1,22 @@
 import { ArrowLeft } from 'lucide-react'
 import { matchPath, useLocation, useNavigate } from 'react-router-dom'
-import { ROUTE_HIERARCHY } from '@/config/route-hierarchy'
+import { APP_ROUTES, type AppRole } from '@/config/routes'
 
-export function BackButton(): React.ReactElement | null {
+export function BackButton({ role = 'collector' }: { role?: AppRole }): React.ReactElement | null {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const parentRoute = ROUTE_HIERARCHY.find((route) =>
-    matchPath({ path: route.pattern, end: true }, pathname),
+  const route = APP_ROUTES.find(
+    (item) => item.parentPath !== undefined && matchPath({ path: item.path, end: true }, pathname),
   )
 
-  if (parentRoute === undefined) return null
-  const destination = parentRoute.destination
+  if (route?.parentPath === undefined) return null
+  const parentPath = route.parentPath
+  const destination = typeof parentPath === 'string' ? parentPath : parentPath[role]
+  if (destination === undefined) return null
+  const parentDestination = destination
 
   function goToParent(): void {
-    void navigate(destination)
-    // The existing application router also subscribes to hashchange events.
-    // React Router updates the hash with pushState, which does not emit one itself.
-    window.dispatchEvent(new Event('hashchange'))
+    void navigate(parentDestination)
   }
 
   return (

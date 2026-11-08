@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { ApiError } from '@/shared/api/http'
 import { Button } from '@/shared/components/ui/Button'
+import { Dialog } from '@/shared/components/ui/Dialog'
 import { CurvedHeader } from '@/shared/components/ui/CurvedHeader'
 import { fetchAdminHouses, type AdminHouse } from './api'
-import { navigate } from '@/shared/lib/router'
+import { useNavigate } from 'react-router-dom'
 import { formatWibDateLabel } from '@/shared/lib/date'
 import { deleteHouse } from '@/features/houses/api'
+import { APP_PATHS } from '@/config/routes'
 
 function formatDate(value: string | null): string {
   return value === null ? 'Belum dijadwalkan' : formatWibDateLabel(new Date(value))
@@ -20,11 +22,14 @@ function formatFee(value: number): string {
 }
 
 export function AdminHousesPage(): React.ReactElement {
+  const navigate = useNavigate()
   const [houses, setHouses] = useState<readonly AdminHouse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [refreshVersion, setRefreshVersion] = useState(0)
   const [busyHouseId, setBusyHouseId] = useState<string | null>(null)
+  const [houseToDelete, setHouseToDelete] = useState<AdminHouse | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     void fetchAdminHouses()
@@ -43,18 +48,16 @@ export function AdminHousesPage(): React.ReactElement {
       })
   }, [refreshVersion])
 
-  async function removeHouse(house: AdminHouse): Promise<void> {
-    const confirmed = window.confirm(
-      `Nonaktifkan rumah milik ${house.ownerName}? Data riwayat tetap tersimpan.`,
-    )
-    if (!confirmed) return
-    setBusyHouseId(house.id)
-    setError(null)
+  async function confirmDeleteHouse(): Promise<void> {
+    if (houseToDelete === null) return
+    setBusyHouseId(houseToDelete.id)
+    setDeleteError(null)
     try {
-      await deleteHouse(house.id)
+      await deleteHouse(houseToDelete.id)
+      setHouseToDelete(null)
       setRefreshVersion((version) => version + 1)
     } catch (caught: unknown) {
-      setError(caught instanceof ApiError ? caught.message : 'Gagal menghapus rumah.')
+      setDeleteError(caught instanceof ApiError ? caught.message : 'Gagal menghapus rumah.')
     } finally {
       setBusyHouseId(null)
     }
@@ -77,7 +80,7 @@ export function AdminHousesPage(): React.ReactElement {
             label="+ Tambah Rumah"
             variant="pill-green"
             onClick={() => {
-              navigate('/houses/create')
+              void navigate(APP_PATHS.createHouse)
             }}
           />
         </div>
@@ -159,23 +162,23 @@ export function AdminHousesPage(): React.ReactElement {
                           <button
                             type="button"
                             onClick={() => {
-                              navigate(`/houses/edit/${house.id}`)
+                              void navigate(APP_PATHS.editHouse(house.id))
                             }}
                             className="rounded-full bg-brand/10 px-3 py-1.5 font-bold text-brand focus-visible:ring-2 focus-visible:ring-action disabled:opacity-50"
                             disabled={busyHouseId === house.id}
                           >
                             Edit
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              void removeHouse(house)
-                            }}
-                            className="rounded-full bg-status-kasbon/10 px-3 py-1.5 font-bold text-status-kasbon focus-visible:ring-2 focus-visible:ring-action disabled:opacity-50"
+                          <Button
+                            label="Hapus"
+                            variant="destructive"
+                            className="px-3 py-1.5 text-xs font-bold tracking-normal normal-case"
                             disabled={busyHouseId === house.id}
-                          >
-                            {busyHouseId === house.id ? 'Memproses…' : 'Hapus'}
-                          </button>
+                            onClick={() => {
+                              setDeleteError(null)
+                              setHouseToDelete(house)
+                            }}
+                          />
                         </div>
                       </td>
                     </tr>
@@ -186,6 +189,42 @@ export function AdminHousesPage(): React.ReactElement {
           </div>
         )}
       </section>
+
+      {houseToDelete !== null ? (
+        <Dialog
+          title="Konfirmasi Hapus"
+          subtitle={`Nonaktifkan rumah milik ${houseToDelete.ownerName}?`}
+          onClose={() => {
+            setHouseToDelete(null)
+          }}
+          error={deleteError}
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-neutral-600">
+              Data riwayat tetap tersimpan di sistem, namun rumah ini tidak akan dijadwalkan lagi
+              untuk pengambilan rutin.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                label="Batal"
+                variant="pill-green"
+                className="bg-neutral-200! text-neutral-700!"
+                onClick={() => {
+                  setHouseToDelete(null)
+                }}
+              />
+              <Button
+                label={busyHouseId === houseToDelete.id ? 'Memproses…' : 'Hapus'}
+                variant="destructive"
+                loading={busyHouseId === houseToDelete.id}
+                onClick={() => {
+                  void confirmDeleteHouse()
+                }}
+              />
+            </div>
+          </div>
+        </Dialog>
+      ) : null}
     </div>
   )
 }

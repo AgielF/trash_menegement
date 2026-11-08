@@ -1,92 +1,51 @@
-import clipboardIcon from '@/assets/images/cicon-clibboard.png'
-import houseIcon from '@/assets/images/icon-rumah-footerbar.png'
-import moneyIcon from '@/assets/images/icon-money-footerbar.png'
-import peopleIcon from '@/assets/images/icon-profile-footerbar.png'
-import { Building2, LayoutDashboard, Settings } from 'lucide-react'
-import { useRouterPath } from '@/shared/lib/router'
+import type { ReactElement } from 'react'
+import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '@/features/auth/store'
-import { navFor } from '@/config/navigation'
-import type { NavItem, Role } from '@/config/navigation'
+import { APP_PATHS, APP_ROUTES, type AppRole } from '@/config/routes'
 
-const ADMIN_ITEMS = [
-  { to: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/admin/houses', label: 'Rumah', icon: Building2 },
-  { to: '/admin/settings', label: 'Setting', icon: Settings },
-] as const
-
-// Ikon PNG resmi dari Figma (22×22 px). Satu-satunya pemetaan kunci → file.
-const ICONS: Record<NavItem['icon'], string> = {
-  clipboard: clipboardIcon,
-  house: houseIcon,
-  people: peopleIcon,
-  money: moneyIcon,
-}
-
-/** Bottom navigation memakai ikon PNG asli Figma — bukan SVG rekreasi. */
-export function BottomNavigation(): React.ReactElement | null {
-  const user = useAuthStore((s) => s.user)
-  const path = useRouterPath()
+/**
+ * Bottom navigation terpadu:
+ * - Membaca konfigurasi rute dari `routes.ts` berdasarkan role user aktif ('admin' atau 'collector').
+ * - Hanya ada SATU elemen bar navigasi tanpa duplikasi markup.
+ * - Menggunakan ikon PNG resmi atau ikon Lucide sesuai konfigurasi rute.
+ */
+export function BottomNavigation(): ReactElement | null {
+  const user = useAuthStore((state) => state.user)
   if (user === null) return null
-  const isAdmin = user.roles.includes('admin')
-  if (isAdmin) {
-    return (
-      <nav
-        aria-label="Navigasi utama"
-        className="sticky bottom-0 z-10 flex h-14 shrink-0 items-center justify-around bg-nav-bar"
-      >
-        {ADMIN_ITEMS.map((item) => {
-          const active = path === item.to
-          const Icon = item.icon
-          return (
-            <a
-              key={item.to}
-              href={`#${item.to}`}
-              aria-current={active ? 'page' : undefined}
-              aria-label={item.label}
-              title={item.label}
-              className={`flex h-11 min-w-11 items-center justify-center rounded-lg p-1.5 focus-visible:ring-2 focus-visible:ring-action ${
-                active ? 'bg-white/70' : ''
-              }`}
-            >
-              <Icon aria-hidden="true" className="h-6 w-6 text-brand" strokeWidth={2} />
-              <span className="sr-only">{item.label}</span>
-            </a>
-          )
-        })}
-      </nav>
-    )
-  }
-  // Collector tetap memakai navigasi dan ikon PNG yang sudah digunakan sebelumnya.
-  const roles = user.roles.filter((r): r is Role => r === 'admin' || r === 'collector')
-  const items = navFor(roles)
+
+  const activeRole: AppRole = user.roles.includes('admin') ? 'admin' : 'collector'
+  const navItems = APP_ROUTES.filter(
+    (route) => route.showInNav && route.navRoles?.includes(activeRole),
+  ).sort((left, right) => (left.navOrder ?? 0) - (right.navOrder ?? 0))
+
   return (
     <nav
       aria-label="Navigasi utama"
       className="sticky bottom-0 z-10 flex h-14 shrink-0 items-center justify-around bg-nav-bar"
     >
-      {items.map((item) => {
-        const active = path === item.to
+      {navItems.map((item) => {
+        const label = item.navLabel ?? item.path
+        const Icon = item.navIcon
         return (
-          <a
-            key={item.to}
-            href={`#${item.to}`}
-            aria-current={active ? 'page' : undefined}
-            aria-label={item.label}
-            title={item.label}
-            className={`flex h-11 min-w-11 items-center justify-center rounded-lg p-1.5 focus-visible:ring-2 focus-visible:ring-action ${
-              active ? 'bg-white/70' : ''
-            }`}
+          <NavLink
+            key={item.path}
+            to={item.path}
+            end={item.path === APP_PATHS.admin}
+            aria-label={label}
+            title={label}
+            className={({ isActive }) =>
+              `flex h-11 min-w-11 items-center justify-center rounded-lg p-1.5 focus-visible:ring-2 focus-visible:ring-action ${
+                isActive ? 'bg-white/70' : ''
+              }`
+            }
           >
-            <img
-              src={ICONS[item.icon]}
-              alt=""
-              aria-hidden="true"
-              className="h-6 w-6"
-              draggable={false}
-            />
-            {/* Label teks agar status aktif tidak hanya dari warna (WCAG). */}
-            <span className="sr-only">{item.label}</span>
-          </a>
+            {typeof Icon === 'string' ? (
+              <img src={Icon} alt="" aria-hidden="true" className="h-6 w-6" draggable={false} />
+            ) : Icon !== undefined ? (
+              <Icon aria-hidden="true" className="h-6 w-6 text-brand" strokeWidth={2} />
+            ) : null}
+            <span className="sr-only">{label}</span>
+          </NavLink>
         )
       })}
     </nav>
